@@ -21,6 +21,7 @@ import {
   MUTED_ON_LIGHT,
   OK,
 } from "./theme";
+import { usePortrait } from "./layout";
 
 const useSpring = (delay: number, damping = 200) => {
   const frame = useCurrentFrame();
@@ -113,14 +114,24 @@ export const LeakTank: React.FC<{ start: number }> = ({ start }) => {
   );
   const level = 1 - appear.reduce((s, a) => s + a * 0.12, 0);
   const tank = useSpring(start - 30);
+  const portrait = usePortrait();
   return (
-    <div style={{ display: "flex", gap: 80, alignItems: "center", flex: 1 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: portrait ? "column" : "row",
+        gap: portrait ? 40 : 80,
+        alignItems: "center",
+        flex: portrait ? "none" : 1,
+      }}
+    >
       <div
         style={{
-          flex: 1,
+          flex: portrait ? "none" : 1,
+          width: portrait ? "100%" : undefined,
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: 24,
+          gap: portrait ? 18 : 24,
         }}
       >
         {problems.map((p, i) => (
@@ -133,8 +144,8 @@ export const LeakTank: React.FC<{ start: number }> = ({ start }) => {
               backgroundColor: "#FBFAF7",
               border: `2px solid ${DANGER}`,
               borderRadius: 16,
-              padding: "22px 26px",
-              fontSize: 32,
+              padding: portrait ? "18px 18px" : "22px 26px",
+              fontSize: portrait ? 27 : 32,
               fontWeight: 700,
               color: DARK,
               opacity: Math.min(1, appear[i] * 1.5),
@@ -178,7 +189,7 @@ export const LeakTank: React.FC<{ start: number }> = ({ start }) => {
           style={{
             position: "relative",
             width: 260,
-            height: 440,
+            height: portrait ? 300 : 440,
             borderRadius: 28,
             border: `6px solid ${DARK}`,
             overflow: "hidden",
@@ -260,14 +271,18 @@ export const Hub: React.FC<{
 }> = ({ start, items }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const cx = 832;
-  const cy = 290;
-  const rx = 640;
-  const ry = 215;
+  const portrait = usePortrait();
+  const W = portrait ? 960 : 1664;
+  const H = portrait ? 1150 : 680;
+  const cx = W / 2;
+  const cy = portrait ? 560 : 290;
+  const rx = portrait ? 300 : 640;
+  const ry = portrait ? 440 : 215;
+  const boxW = portrait ? 330 : 380;
   const center = useSpring(start, 12);
   return (
-    <div style={{ position: "relative", width: 1664, height: 680 }}>
-      <svg width={1664} height={680} style={{ position: "absolute", inset: 0 }}>
+    <div style={{ position: "relative", width: W, height: H }}>
+      <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
         {items.map((_, i) => {
           const ang = (-90 + i * 60) * (Math.PI / 180);
           const x = cx + Math.cos(ang) * rx;
@@ -340,9 +355,9 @@ export const Hub: React.FC<{
             key={it.title}
             style={{
               position: "absolute",
-              left: x - 190,
+              left: x - boxW / 2,
               top: y - 62,
-              width: 380,
+              width: boxW,
               backgroundColor: DARK,
               borderRadius: 18,
               padding: "18px 24px",
@@ -514,22 +529,23 @@ export const BillingModes: React.FC<{ start: number; flip: number }> = ({
   const fixedFill = interpolate(frame, [start + 15, start + 60], [0, 1], clamp);
   const proFill = interpolate(frame, [flip + 10, flip + 80], [0, 1], clamp);
   const bulletin = useSpring(flip + 85, 12);
+  const portrait = usePortrait();
   const card = (active: number): React.CSSProperties => ({
     flex: 1,
     backgroundColor: DARK,
     borderRadius: 22,
-    padding: "30px 36px",
+    padding: portrait ? "24px 30px" : "30px 36px",
     display: "flex",
     flexDirection: "column",
-    gap: 18,
+    gap: portrait ? 14 : 18,
     border: `4px solid rgba(245,165,0,${0.25 + active * 0.75})`,
     opacity: 0.55 + active * 0.45,
     transform: `scale(${0.96 + active * 0.04})`,
     boxShadow: `0 20px 60px rgba(245,165,0,${0.3 * active})`,
   });
   // Escora metálica from the screenshot: 60 un × 24 d + 40 un × 6 d.
-  const chartW = 640;
-  const chartH = 190;
+  const chartW = portrait ? 830 : 640;
+  const chartH = portrait ? 160 : 190;
   const qty = (d: number) => (d < 24 ? 60 : 40);
   const days = 30;
   const shown = proFill * days;
@@ -567,6 +583,7 @@ export const BillingModes: React.FC<{ start: number; flip: number }> = ({
         <div style={{ fontSize: 30, fontWeight: 700, opacity: 0.5 + sw * 0.5 }}>Medição pró-rata</div>
         <div
           style={{
+            display: portrait ? "none" : "block",
             marginLeft: 20,
             fontSize: 24,
             fontWeight: 700,
@@ -580,7 +597,7 @@ export const BillingModes: React.FC<{ start: number; flip: number }> = ({
           escolha por contrato
         </div>
       </div>
-      <div style={{ display: "flex", gap: 40 }}>
+      <div style={{ display: "flex", flexDirection: portrait ? "column" : "row", gap: portrait ? 24 : 40 }}>
         <div style={card(1 - sw)}>
           <div style={{ fontSize: 40, fontWeight: 700, color: ACCENT }}>Período fechado</div>
           <div style={{ fontSize: 27, lineHeight: 1.4, color: "#E4DFD7" }}>
@@ -799,6 +816,65 @@ export const StepsProgress: React.FC<{ steps: string[]; start: number }> = ({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const fill = interpolate(frame, [start, start + steps.length * 30], [0, 1], clamp);
+  const portrait = usePortrait();
+  if (portrait) {
+    return (
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 44, marginTop: 40 }}>
+        <div
+          style={{
+            position: "absolute",
+            left: 58,
+            top: 60,
+            bottom: 60,
+            width: 8,
+            backgroundColor: "#3A3A3A",
+            borderRadius: 4,
+          }}
+        >
+          <div style={{ height: `${fill * 100}%`, width: "100%", backgroundColor: ACCENT, borderRadius: 4 }} />
+        </div>
+        {steps.map((s, i) => {
+          const reached = spring({ frame: frame - start - i * 30, fps, config: { damping: 12 } });
+          return (
+            <div key={s} style={{ display: "flex", alignItems: "center", gap: 36 }}>
+              <div
+                style={{
+                  width: 124,
+                  height: 124,
+                  flexShrink: 0,
+                  borderRadius: "50%",
+                  backgroundColor: reached > 0.5 ? ACCENT : "#2A2A2A",
+                  border: `6px solid ${ACCENT}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: display,
+                  fontSize: 54,
+                  fontWeight: 700,
+                  color: reached > 0.5 ? DARK : ACCENT,
+                  transform: `scale(${0.8 + reached * 0.2})`,
+                  position: "relative",
+                }}
+              >
+                {reached > 0.5 ? "✓" : `0${i + 1}`}
+              </div>
+              <div
+                style={{
+                  fontSize: 36,
+                  lineHeight: 1.3,
+                  color: LIGHT,
+                  opacity: 0.4 + reached * 0.6,
+                  transform: `translateX(${(1 - reached) * 30}px)`,
+                }}
+              >
+                {s}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div style={{ position: "relative", display: "flex", gap: 24, marginTop: 150 }}>
       <div

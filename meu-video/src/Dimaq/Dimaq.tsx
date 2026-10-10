@@ -33,6 +33,7 @@ import {
   StepsProgress,
   TariffBlocks,
 } from "./Explainers";
+import { PortraitContext, usePortrait } from "./layout";
 import { Presenter } from "./Presenter";
 import {
   ACCENT,
@@ -50,7 +51,6 @@ import {
 } from "./theme";
 import timing from "./timing.json";
 
-
 loadFont({
   family: display,
   url: staticFile("fonts/oswald-latin-700-normal.woff2"),
@@ -64,11 +64,9 @@ for (const weight of ["400", "600", "700"]) {
   });
 }
 
-
 const TRANSITION = 15;
 
 const img = (name: string) => staticFile(`dimaq/${name}.png`);
-
 
 const useEnter = (delay: number, damping = 200) => {
   const frame = useCurrentFrame();
@@ -204,21 +202,49 @@ const Scene: React.FC<{
   dark: boolean;
   children: React.ReactNode;
   accent?: boolean;
-}> = ({ dark, children, accent }) => (
-  <AbsoluteFill
-    style={{
-      backgroundColor: accent ? ACCENT : dark ? DARK : LIGHT,
-      color: dark && !accent ? LIGHT : DARK,
-      fontFamily: body,
-      padding: "110px 128px 120px",
-      flexDirection: "column",
-      gap: 44,
-    }}
-  >
-    <Backdrop variant={accent ? "accent" : dark ? "dark" : "light"} />
-    {children}
-  </AbsoluteFill>
-);
+}> = ({ dark, children, accent }) => {
+  const portrait = usePortrait();
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: accent ? ACCENT : dark ? DARK : LIGHT,
+        color: dark && !accent ? LIGHT : DARK,
+        fontFamily: body,
+        padding: portrait ? "150px 60px 300px" : "110px 128px 120px",
+        flexDirection: "column",
+        justifyContent: portrait ? "center" : "flex-start",
+        gap: portrait ? 36 : 44,
+      }}
+    >
+      <Backdrop variant={accent ? "accent" : dark ? "dark" : "light"} />
+      {children}
+    </AbsoluteFill>
+  );
+};
+
+// A row in landscape that stacks into a column on the phone version.
+const Flow: React.FC<{
+  gap: number;
+  portraitGap: number;
+  align: React.CSSProperties["alignItems"];
+  wrap: boolean;
+  children: React.ReactNode;
+}> = ({ gap, portraitGap, align, wrap, children }) => {
+  const portrait = usePortrait();
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: portrait && !wrap ? "column" : "row",
+        flexWrap: portrait && wrap ? "wrap" : "nowrap",
+        gap: portrait ? portraitGap : gap,
+        alignItems: align,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
 const Heading: React.FC<{ eyebrow?: string; title: string; dark: boolean }> = ({
   eyebrow,
@@ -226,6 +252,7 @@ const Heading: React.FC<{ eyebrow?: string; title: string; dark: boolean }> = ({
   dark,
 }) => {
   const line = useEnter(0);
+  const portrait = usePortrait();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {eyebrow ? (
@@ -255,7 +282,7 @@ const Heading: React.FC<{ eyebrow?: string; title: string; dark: boolean }> = ({
       <div
         style={{
           fontFamily: display,
-          fontSize: 76,
+          fontSize: portrait ? 64 : 76,
           fontWeight: 700,
           lineHeight: 1.1,
         }}
@@ -268,6 +295,14 @@ const Heading: React.FC<{ eyebrow?: string; title: string; dark: boolean }> = ({
 
 type Focus = { x: number; y: number; w: number; h: number; at: number };
 
+// Width each screenshot size takes on the phone version (960 px of usable width).
+const PORTRAIT_SHOT_WIDTH: Record<number, number> = {
+  1040: 940,
+  800: 820,
+  400: 290,
+  290: 260,
+};
+
 // A screenshot that swings in in 3D, floats, gets a light sweep and can zoom
 // into a highlighted region (x, y, w, h are fractions of the image).
 const Shot: React.FC<{
@@ -279,15 +314,37 @@ const Shot: React.FC<{
   focus?: Focus[];
   tilt?: number;
   overlay?: React.ReactNode;
-}> = ({ name, width, height, delay, dark, focus = [], tilt = 1, overlay }) => {
+}> = ({
+  name,
+  width: baseWidth,
+  height: baseHeight,
+  delay,
+  dark,
+  focus = [],
+  tilt = 1,
+  overlay,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const p = spring({ frame: frame - delay, fps, config: { damping: 16, mass: 0.9 } });
+  const portrait = usePortrait();
+  const k = portrait ? (PORTRAIT_SHOT_WIDTH[baseWidth] ?? 940) / baseWidth : 1;
+  const width = baseWidth * k;
+  const height = baseHeight * k;
+  const p = spring({
+    frame: frame - delay,
+    fps,
+    config: { damping: 16, mass: 0.9 },
+  });
   const float = Math.sin((frame - delay) / 45) * 6;
   const shine = interpolate(frame, [delay + 12, delay + 42], [-60, 160], clamp);
   // Each focus step eases in; the camera glides from one region to the next.
   const steps = focus.map((s) =>
-    spring({ frame: frame - s.at, fps, config: { damping: 200 }, durationInFrames: 36 }),
+    spring({
+      frame: frame - s.at,
+      fps,
+      config: { damping: 200 },
+      durationInFrames: 36,
+    }),
   );
   let ox = 0.5;
   let oy = 0.5;
@@ -297,7 +354,8 @@ const Shot: React.FC<{
   });
   const f = steps.length ? steps[0] : 0;
   const active = steps.reduce((acc, v, i) => (v > 0.5 ? i : acc), 0);
-  const zoom = 1 + f * 0.3 + interpolate(frame, [delay, delay + 300], [0, 0.03], clamp);
+  const zoom =
+    1 + f * 0.3 + interpolate(frame, [delay, delay + 300], [0, 0.03], clamp);
   const origin = `${ox * 100}% ${oy * 100}%`;
   const pulse = 1 + Math.sin(frame / 5) * 0.5;
   return (
@@ -423,7 +481,6 @@ const B: React.FC<{ children: React.ReactNode; dark: boolean }> = ({
   </span>
 );
 
-
 const CountUp: React.FC<{ value: number; delay: number }> = ({
   value,
   delay,
@@ -445,12 +502,14 @@ const MoneyBadge: React.FC<{ badge: Badge; dark: boolean }> = ({
 }) => {
   const frame = useCurrentFrame();
   const p = useEnter(badge.at, 12);
+  const portrait = usePortrait();
   return (
     <div
       style={{
         position: "absolute",
-        right: 110,
-        top: 120,
+        right: portrait ? 60 : 110,
+        top: portrait ? undefined : 120,
+        bottom: portrait ? 330 : undefined,
         transform: `scale(${p}) rotate(${(1 - p) * -8}deg) translateY(${Math.sin(frame / 20) * 4}px)`,
         backgroundColor: dark ? ACCENT : DARK,
         color: dark ? DARK : ACCENT,
@@ -465,7 +524,14 @@ const MoneyBadge: React.FC<{ badge: Badge; dark: boolean }> = ({
       <div style={{ fontSize: 24, fontWeight: 600, opacity: 0.85 }}>
         {badge.label}
       </div>
-      <div style={{ fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1.1 }}>
+      <div
+        style={{
+          fontFamily: display,
+          fontSize: 58,
+          fontWeight: 700,
+          lineHeight: 1.1,
+        }}
+      >
         <CountUp value={badge.value} delay={badge.at + 6} />
       </div>
     </div>
@@ -483,7 +549,18 @@ const ScreenScene: React.FC<{
   badge?: Badge;
   overlay?: React.ReactNode;
   extra?: React.ReactNode;
-}> = ({ dark, eyebrow, title, shot, points, shotLeft, focus, badge, overlay, extra }) => {
+}> = ({
+  dark,
+  eyebrow,
+  title,
+  shot,
+  points,
+  shotLeft,
+  focus,
+  badge,
+  overlay,
+  extra,
+}) => {
   const s = (
     <Shot
       name={shot}
@@ -496,8 +573,16 @@ const ScreenScene: React.FC<{
       overlay={overlay}
     />
   );
+  const portrait = usePortrait();
   const p = (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 36 }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        gap: portrait ? 28 : 36,
+      }}
+    >
       <Points items={points} dark={dark} start={24} />
       {extra}
     </div>
@@ -505,10 +590,10 @@ const ScreenScene: React.FC<{
   return (
     <Scene dark={dark}>
       <Heading eyebrow={eyebrow} title={title} dark={dark} />
-      <div style={{ display: "flex", gap: 64, alignItems: "center" }}>
-        {shotLeft ? s : p}
-        {shotLeft ? p : s}
-      </div>
+      <Flow gap={64} portraitGap={40} align="center" wrap={false}>
+        {shotLeft || portrait ? s : p}
+        {shotLeft || portrait ? p : s}
+      </Flow>
       {badge ? <MoneyBadge badge={badge} dark={dark} /> : null}
     </Scene>
   );
@@ -522,9 +607,18 @@ const Card: React.FC<{
   index: number;
 }> = ({ delay, dark, title, text, index }) => {
   const frame = useCurrentFrame();
+  const portrait = usePortrait();
   const { fps } = useVideoConfig();
-  const p = spring({ frame: frame - delay, fps, config: { damping: 14, mass: 0.8 } });
-  const bar = spring({ frame: frame - delay - 10, fps, config: { damping: 200 } });
+  const p = spring({
+    frame: frame - delay,
+    fps,
+    config: { damping: 14, mass: 0.8 },
+  });
+  const bar = spring({
+    frame: frame - delay - 10,
+    fps,
+    config: { damping: 200 },
+  });
   return (
     <div style={{ perspective: 1200, height: "100%" }}>
       <div
@@ -563,6 +657,7 @@ const Card: React.FC<{
             fontSize: 64,
             fontWeight: 700,
             color: "rgba(245,165,0,0.16)",
+            display: portrait ? "none" : "block",
           }}
         >
           0{index + 1}
@@ -583,26 +678,29 @@ const Cards: React.FC<{
   dark: boolean;
   start: number;
   columns: number;
-}> = ({ items, dark, start, columns }) => (
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: `repeat(${columns}, 1fr)`,
-      gap: 28,
-    }}
-  >
-    {items.map((c, i) => (
-      <Card
-        key={c.title}
-        delay={start + i * 7}
-        dark={dark}
-        title={c.title}
-        text={c.text}
-        index={i}
-      />
-    ))}
-  </div>
-);
+}> = ({ items, dark, start, columns }) => {
+  const portrait = usePortrait();
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${portrait ? Math.min(columns, 2) : columns}, 1fr)`,
+        gap: portrait ? 22 : 28,
+      }}
+    >
+      {items.map((c, i) => (
+        <Card
+          key={c.title}
+          delay={start + i * 7}
+          dark={dark}
+          title={c.title}
+          text={c.text}
+          index={i}
+        />
+      ))}
+    </div>
+  );
+};
 
 const Divider: React.FC<{
   eyebrow: string;
@@ -611,6 +709,7 @@ const Divider: React.FC<{
   stats?: { label: string; value: number }[];
 }> = ({ eyebrow, title, text, stats }) => {
   const frame = useCurrentFrame();
+  const portrait = usePortrait();
   const p = useEnter(0);
   return (
     <Scene dark accent>
@@ -655,7 +754,7 @@ const Divider: React.FC<{
         <div
           style={{
             fontFamily: display,
-            fontSize: 120,
+            fontSize: portrait ? 92 : 120,
             fontWeight: 700,
             lineHeight: 1.05,
             maxWidth: 1500,
@@ -664,7 +763,14 @@ const Divider: React.FC<{
           <WordReveal lines={words(title)} delay={8} stagger={2} />
         </div>
         {stats ? (
-          <div style={{ display: "flex", gap: 28, marginTop: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 28,
+              marginTop: 10,
+            }}
+          >
             {stats.map((s, i) => (
               <Rise key={s.label} delay={22 + i * 6}>
                 <div
@@ -675,10 +781,18 @@ const Divider: React.FC<{
                     padding: "18px 30px",
                   }}
                 >
-                  <div style={{ fontFamily: display, fontSize: 60, fontWeight: 700 }}>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 60,
+                      fontWeight: 700,
+                    }}
+                  >
                     <CountUp value={s.value} delay={24 + i * 6} />
                   </div>
-                  <div style={{ fontSize: 24, color: "#E4DFD7" }}>{s.label}</div>
+                  <div style={{ fontSize: 24, color: "#E4DFD7" }}>
+                    {s.label}
+                  </div>
                 </div>
               </Rise>
             ))}
@@ -909,9 +1023,14 @@ const LogoShine: React.FC<{ width: number; delay: number }> = ({
 
 const Intro: React.FC = () => {
   const p = useEnter(0);
+  const portrait = usePortrait();
   return (
     <Scene dark>
-      <Rings cx={1650} cy={540} base={240} />
+      {portrait ? (
+        <Rings cx={540} cy={370} base={250} />
+      ) : (
+        <Rings cx={1650} cy={540} base={240} />
+      )}
       <div
         style={{
           position: "absolute",
@@ -929,19 +1048,19 @@ const Intro: React.FC = () => {
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
-          gap: 36,
+          justifyContent: portrait ? "flex-end" : "center",
+          gap: portrait ? 30 : 36,
         }}
       >
         <Rise delay={0}>
-          <LogoShine width={460} delay={20} />
+          <LogoShine width={portrait ? 380 : 460} delay={20} />
         </Rise>
         <Rise delay={10}>
           <div
             style={{
-              fontSize: 30,
+              fontSize: portrait ? 26 : 30,
               fontWeight: 700,
-              letterSpacing: 6,
+              letterSpacing: portrait ? 4 : 6,
               color: ACCENT,
             }}
           >
@@ -951,21 +1070,46 @@ const Intro: React.FC = () => {
         <div
           style={{
             fontFamily: display,
-            fontSize: 128,
+            fontSize: portrait ? 104 : 128,
             fontWeight: 700,
             lineHeight: 1.05,
           }}
         >
           <WordReveal
             delay={16}
-            lines={[
-              ["Cada", "diária", "cobrada."],
-              ["Cada", "máquina", <span key="r" style={{ color: ACCENT }}>rendendo.</span>],
-            ]}
+            lines={
+              portrait
+                ? [
+                    ["Cada", "diária"],
+                    ["cobrada."],
+                    ["Cada", "máquina"],
+                    [
+                      <span key="r" style={{ color: ACCENT }}>
+                        rendendo.
+                      </span>,
+                    ],
+                  ]
+                : [
+                    ["Cada", "diária", "cobrada."],
+                    [
+                      "Cada",
+                      "máquina",
+                      <span key="r" style={{ color: ACCENT }}>
+                        rendendo.
+                      </span>,
+                    ],
+                  ]
+            }
           />
         </div>
         <Rise delay={40}>
-          <div style={{ fontSize: 36, color: MUTED_ON_DARK, maxWidth: 1200 }}>
+          <div
+            style={{
+              fontSize: portrait ? 32 : 36,
+              color: MUTED_ON_DARK,
+              maxWidth: 1200,
+            }}
+          >
             Locação, medição, ordens de serviço, financeiro e site em um só
             lugar, feitos sob medida para a Dimaq.
           </div>
@@ -978,9 +1122,14 @@ const Intro: React.FC = () => {
 const Outro: React.FC = () => {
   const frame = useCurrentFrame();
   const logo = useEnter(0, 12);
+  const portrait = usePortrait();
   return (
     <Scene dark>
-      <Rings cx={960} cy={500} base={330} />
+      {portrait ? (
+        <Rings cx={540} cy={780} base={300} />
+      ) : (
+        <Rings cx={960} cy={500} base={330} />
+      )}
       <div
         style={{
           flex: 1,
@@ -992,13 +1141,17 @@ const Outro: React.FC = () => {
           textAlign: "center",
         }}
       >
-        <div style={{ transform: `scale(${logo * (1 + Math.sin(frame / 30) * 0.015)})` }}>
-          <LogoShine width={520} delay={14} />
+        <div
+          style={{
+            transform: `scale(${logo * (1 + Math.sin(frame / 30) * 0.015)})`,
+          }}
+        >
+          <LogoShine width={portrait ? 440 : 520} delay={14} />
         </div>
         <div
           style={{
             fontFamily: display,
-            fontSize: 110,
+            fontSize: portrait ? 88 : 110,
             fontWeight: 700,
             lineHeight: 1.1,
           }}
@@ -1008,10 +1161,18 @@ const Outro: React.FC = () => {
             lines={[
               ["Gestão", "de", "locações"],
               [
-                <span key="a" style={{ color: ACCENT }}>em</span>,
-                <span key="b" style={{ color: ACCENT }}>um</span>,
-                <span key="c" style={{ color: ACCENT }}>só</span>,
-                <span key="d" style={{ color: ACCENT }}>lugar</span>,
+                <span key="a" style={{ color: ACCENT }}>
+                  em
+                </span>,
+                <span key="b" style={{ color: ACCENT }}>
+                  um
+                </span>,
+                <span key="c" style={{ color: ACCENT }}>
+                  só
+                </span>,
+                <span key="d" style={{ color: ACCENT }}>
+                  lugar
+                </span>,
               ],
             ]}
           />
@@ -1046,16 +1207,38 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 210,
     node: (
       <Scene dark={false}>
-        <Heading eyebrow="A solução" title="Um sistema, toda a operação" dark={false} />
+        <Heading
+          eyebrow="A solução"
+          title="Um sistema, toda a operação"
+          dark={false}
+        />
         <Hub
           start={20}
           items={[
-            { title: "Locação", text: "Orçamento, reserva, entrega, renovação e devolução." },
-            { title: "Cobrança", text: "Período fechado ou medição pró-rata, por contrato." },
-            { title: "Ordens de serviço", text: "Preventiva por horímetro, corretiva e revisão." },
-            { title: "Vendas e estoque", text: "Peças e produtos com baixa automática." },
-            { title: "Financeiro e NF", text: "Receber, pagar, juros, recibos e nota." },
-            { title: "Site e cliente", text: "Catálogo, orçamento online e área do cliente." },
+            {
+              title: "Locação",
+              text: "Orçamento, reserva, entrega, renovação e devolução.",
+            },
+            {
+              title: "Cobrança",
+              text: "Período fechado ou medição pró-rata, por contrato.",
+            },
+            {
+              title: "Ordens de serviço",
+              text: "Preventiva por horímetro, corretiva e revisão.",
+            },
+            {
+              title: "Vendas e estoque",
+              text: "Peças e produtos com baixa automática.",
+            },
+            {
+              title: "Financeiro e NF",
+              text: "Receber, pagar, juros, recibos e nota.",
+            },
+            {
+              title: "Site e cliente",
+              text: "Catálogo, orçamento online e área do cliente.",
+            },
           ]}
         />
       </Scene>
@@ -1085,8 +1268,13 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           />
         }
         points={[
-          <>Cada locação vira um cartão com <Hi>contagem regressiva</Hi>.</>,
-          <>Atrasos, devoluções do dia, pedidos do site e vencidos em indicadores.</>,
+          <>
+            Cada locação vira um cartão com <Hi>contagem regressiva</Hi>.
+          </>,
+          <>
+            Atrasos, devoluções do dia, pedidos do site e vencidos em
+            indicadores.
+          </>,
           <>Renovar, devolver ou chamar no WhatsApp direto do cartão.</>,
         ]}
       />
@@ -1106,8 +1294,14 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           { x: 0.73, y: 0.46, w: 0.25, h: 0.18, at: 200 },
         ]}
         points={[
-          <><B dark={false}>Disponibilidade ao vivo</B> por peça ou por quantidade.</>,
-          <>Sem estoque no período, só salva como orçamento: <B dark={false}>reserva dupla nunca mais</B>.</>,
+          <>
+            <B dark={false}>Disponibilidade ao vivo</B> por peça ou por
+            quantidade.
+          </>,
+          <>
+            Sem estoque no período, só salva como orçamento:{" "}
+            <B dark={false}>reserva dupla nunca mais</B>.
+          </>,
         ]}
         extra={<TariffBlocks start={100} dark={false} />}
       />
@@ -1118,29 +1312,67 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     node: (
       <Scene dark={false}>
         <Heading title="Quadro e agenda: a frota à vista" dark={false} />
-        <div style={{ display: "flex", gap: 64 }}>
+        <Flow gap={64} portraitGap={28} align="stretch" wrap={false}>
           {[
-            { shot: "quadro", label: "Quadro:", text: "arraste o cartão e o sistema faz a reserva, a entrega ou a devolução." },
-            { shot: "agenda", label: "Agenda:", text: "cada equipamento numa linha do tempo; clique num dia livre para orçar." },
+            {
+              shot: "quadro",
+              label: "Quadro:",
+              text: "arraste o cartão e o sistema faz a reserva, a entrega ou a devolução.",
+            },
+            {
+              shot: "agenda",
+              label: "Agenda:",
+              text: "cada equipamento numa linha do tempo; clique num dia livre para orçar.",
+            },
           ].map((x, i) => (
-            <div key={x.shot} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
+            <div
+              key={x.shot}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 24,
+              }}
+            >
               <Shot
                 name={x.shot}
                 width={800}
                 height={500}
                 delay={8 + i * 10}
                 dark={false}
-                overlay={x.shot === "quadro" ? <DragDemo start={40} /> : <Cursor path={[{ x: 0.5, y: 0.6, at: 150 }, { x: 0.61, y: 0.3, at: 180 }]} clicks={[185]} />}
-                focus={x.shot === "agenda" ? [{ x: 0.15, y: 0.25, w: 0.84, h: 0.12, at: 150 }] : []}
+                overlay={
+                  x.shot === "quadro" ? (
+                    <DragDemo start={40} />
+                  ) : (
+                    <Cursor
+                      path={[
+                        { x: 0.5, y: 0.6, at: 150 },
+                        { x: 0.61, y: 0.3, at: 180 },
+                      ]}
+                      clicks={[185]}
+                    />
+                  )
+                }
+                focus={
+                  x.shot === "agenda"
+                    ? [{ x: 0.15, y: 0.25, w: 0.84, h: 0.12, at: 150 }]
+                    : []
+                }
               />
               <Rise delay={24 + i * 10}>
-                <div style={{ fontSize: 30, lineHeight: 1.4, color: MUTED_ON_LIGHT }}>
+                <div
+                  style={{
+                    fontSize: 28,
+                    lineHeight: 1.4,
+                    color: MUTED_ON_LIGHT,
+                  }}
+                >
                   <B dark={false}>{x.label}</B> {x.text}
                 </div>
               </Rise>
             </div>
           ))}
-        </div>
+        </Flow>
       </Scene>
     ),
   },
@@ -1154,8 +1386,12 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         shot="devolucao"
         focus={[{ x: 0.17, y: 0.64, w: 0.66, h: 0.15, at: 90 }]}
         points={[
-          <><Hi>Atraso</Hi> calculado e lançado sozinho.</>,
-          <><Hi>Avaria</Hi> vira cobrança e abre a OS na hora.</>,
+          <>
+            <Hi>Atraso</Hi> calculado e lançado sozinho.
+          </>,
+          <>
+            <Hi>Avaria</Hi> vira cobrança e abre a OS na hora.
+          </>,
         ]}
         extra={<LateTimeline start={70} />}
       />
@@ -1193,18 +1429,42 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 270,
     node: (
       <Scene dark={false}>
-        <Heading eyebrow="Economia" title="Dinheiro que deixa de escapar" dark={false} />
+        <Heading
+          eyebrow="Economia"
+          title="Dinheiro que deixa de escapar"
+          dark={false}
+        />
         <Table
           widths="0.9fr 1.4fr 1.1fr"
-          head={["Fonte de ganho", "Como o sistema resolve", "Exemplo nas telas"]}
+          head={[
+            "Fonte de ganho",
+            "Como o sistema resolve",
+            "Exemplo nas telas",
+          ]}
           start={14}
           rows={[
-            ["Diárias excedentes", "Atraso calculado na devolução", "2 dias = R$ 660,00"],
-            ["Cobrança certa", "Período fechado ou medição pró-rata", "Boletim de R$ 2.270,00"],
+            [
+              "Diárias excedentes",
+              "Atraso calculado na devolução",
+              "2 dias = R$ 660,00",
+            ],
+            [
+              "Cobrança certa",
+              "Período fechado ou medição pró-rata",
+              "Boletim de R$ 2.270,00",
+            ],
             ["Avarias", "Viram cobrança e abrem OS", "Custo volta ao cliente"],
             ["Multa e juros", "Calculados na baixa", "Sem conta de cabeça"],
-            ["Inadimplência", "Vencidos em destaque no painel", "R$ 1.315,00 à vista"],
-            ["Reserva dupla", "Disponibilidade bloqueia conflito", "Sem frete perdido"],
+            [
+              "Inadimplência",
+              "Vencidos em destaque no painel",
+              "R$ 1.315,00 à vista",
+            ],
+            [
+              "Reserva dupla",
+              "Disponibilidade bloqueia conflito",
+              "Sem frete perdido",
+            ],
           ]}
         />
       </Scene>
@@ -1214,7 +1474,11 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 270,
     node: (
       <Scene dark={false}>
-        <Heading eyebrow="Economia de tempo" title="Antes e depois do sistema" dark={false} />
+        <Heading
+          eyebrow="Economia de tempo"
+          title="Antes e depois do sistema"
+          dark={false}
+        />
         <Table
           widths="0.9fr 1.1fr 1.3fr"
           head={["Tarefa", "Antes", "Com o sistema"]}
@@ -1222,12 +1486,32 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           check={2}
           start={14}
           rows={[
-            ["Orçar", "Conferir estoque e calcular", "Preço e disponibilidade na hora"],
-            ["Quem devolve hoje", "Revisar contrato por contrato", "Painel com contagem regressiva"],
-            ["Medição mensal", "Planilha por obra", "Boletim gerado em um clique"],
+            [
+              "Orçar",
+              "Conferir estoque e calcular",
+              "Preço e disponibilidade na hora",
+            ],
+            [
+              "Quem devolve hoje",
+              "Revisar contrato por contrato",
+              "Painel com contagem regressiva",
+            ],
+            [
+              "Medição mensal",
+              "Planilha por obra",
+              "Boletim gerado em um clique",
+            ],
             ["Contrato", "Digitar no Word", "Pronto com a marca, por link"],
-            ["Avisar o cliente", "Mensagem do zero", "WhatsApp com texto pronto"],
-            ["Fechar o mês", "Juntar recibos e extratos", "Relatórios de caixa prontos"],
+            [
+              "Avisar o cliente",
+              "Mensagem do zero",
+              "WhatsApp com texto pronto",
+            ],
+            [
+              "Fechar o mês",
+              "Juntar recibos e extratos",
+              "Relatórios de caixa prontos",
+            ],
           ]}
         />
       </Scene>
@@ -1248,28 +1532,50 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     node: (
       <Scene dark>
         <Heading eyebrow="Documentos" title="Prontos com a marca Dimaq" dark />
-        <div style={{ display: "flex", gap: 48, alignItems: "flex-start" }}>
+        <Flow gap={48} portraitGap={40} align="flex-start" wrap>
           {[
             ["doc-contrato", "Contrato de locação"],
             ["doc-devolucao", "Devolução"],
             ["doc-boletim", "Boletim de medição"],
           ].map(([name, label], i) => (
-            <div key={name} style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}>
-              <Shot name={name} width={400} height={566} delay={8 + i * 8} dark />
+            <div
+              key={name}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
+                alignItems: "center",
+              }}
+            >
+              <Shot
+                name={name}
+                width={400}
+                height={566}
+                delay={8 + i * 8}
+                dark
+              />
               <Rise delay={20 + i * 8}>
-                <div style={{ fontSize: 30, fontWeight: 600 }}>{label}</div>
+                <div style={{ fontSize: 26, fontWeight: 600 }}>{label}</div>
               </Rise>
             </div>
           ))}
           <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
             <Rise delay={36}>
-              <div style={{ fontSize: 30, lineHeight: 1.4, color: MUTED_ON_DARK, maxWidth: 380 }}>
-                Também: orçamento, checklist, fatura, OS, pedido de venda e recibo.
+              <div
+                style={{
+                  fontSize: 30,
+                  lineHeight: 1.4,
+                  color: MUTED_ON_DARK,
+                  maxWidth: 520,
+                }}
+              >
+                Também: orçamento, checklist, fatura, OS, pedido de venda e
+                recibo.
               </div>
             </Rise>
             <SendLinks start={90} />
           </div>
-        </div>
+        </Flow>
       </Scene>
     ),
   },
@@ -1283,7 +1589,9 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         shot="os"
         focus={[{ x: 0.19, y: 0.53, w: 0.53, h: 0.11, at: 150 }]}
         points={[
-          <><B dark={false}>Preventiva por horímetro</B>, com alerta no painel.</>,
+          <>
+            <B dark={false}>Preventiva por horímetro</B>, com alerta no painel.
+          </>,
           <>Peças saem do estoque; a máquina fica bloqueada com a OS aberta.</>,
         ]}
         extra={<HourGauge start={60} />}
@@ -1294,18 +1602,34 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 210,
     node: (
       <Scene dark={false}>
-        <Heading eyebrow="Site e celular" title="O site vende, o celular opera" dark={false} />
-        <div style={{ display: "flex", gap: 56, alignItems: "flex-start" }}>
+        <Heading
+          eyebrow="Site e celular"
+          title="O site vende, o celular opera"
+          dark={false}
+        />
+        <Flow gap={56} portraitGap={40} align="center" wrap={false}>
           <div style={{ flex: 1 }}>
             <Cards
               columns={2}
               start={10}
               dark={false}
               items={[
-                { title: "Catálogo", text: "Equipamentos, preços e disponibilidade no site." },
-                { title: "Orçamento online", text: "Chega no sistema já com preço." },
-                { title: "Área do cliente", text: "Locações, faturas e pedido de renovação." },
-                { title: "WhatsApp", text: "Botão no site e mensagens prontas." },
+                {
+                  title: "Catálogo",
+                  text: "Equipamentos, preços e disponibilidade no site.",
+                },
+                {
+                  title: "Orçamento online",
+                  text: "Chega no sistema já com preço.",
+                },
+                {
+                  title: "Área do cliente",
+                  text: "Locações, faturas e pedido de renovação.",
+                },
+                {
+                  title: "WhatsApp",
+                  text: "Botão no site e mensagens prontas.",
+                },
               ]}
             />
           </div>
@@ -1315,9 +1639,11 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
             height={628}
             delay={20}
             dark={false}
-            overlay={<PhoneToast at={90} text="Orçamento: betoneira 400 L, 7 dias" />}
+            overlay={
+              <PhoneToast at={90} text="Orçamento: betoneira 400 L, 7 dias" />
+            }
           />
-        </div>
+        </Flow>
       </Scene>
     ),
   },
@@ -1325,7 +1651,11 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 210,
     node: (
       <Scene dark={false}>
-        <Heading eyebrow="Segurança" title="Cada pessoa vê o que precisa" dark={false} />
+        <Heading
+          eyebrow="Segurança"
+          title="Cada pessoa vê o que precisa"
+          dark={false}
+        />
         <Table
           widths="0.6fr 1.8fr"
           head={["Perfil", "Acesso"]}
@@ -1339,7 +1669,8 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         />
         <Rise delay={60}>
           <div style={{ fontSize: 30, color: MUTED_ON_LIGHT }}>
-            Login próprio em /sistema e histórico de alterações em cada registro.
+            Login próprio em /sistema e histórico de alterações em cada
+            registro.
           </div>
         </Rise>
       </Scene>
@@ -1349,22 +1680,54 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 210,
     node: (
       <Scene dark>
-        <Heading eyebrow="Financeiro e relatórios" title="O caixa sob controle" dark />
-        <div style={{ display: "flex", gap: 64 }}>
+        <Heading
+          eyebrow="Financeiro e relatórios"
+          title="O caixa sob controle"
+          dark
+        />
+        <Flow gap={64} portraitGap={28} align="stretch" wrap={false}>
           {[
-            { shot: "financeiro", label: "Receber e pagar:", text: "baixa parcial, multa e juros automáticos, recibo." },
-            { shot: "relatorios", label: "Relatórios:", text: "utilização e retorno por máquina, fluxo de caixa, inadimplência." },
+            {
+              shot: "financeiro",
+              label: "Receber e pagar:",
+              text: "baixa parcial, multa e juros automáticos, recibo.",
+            },
+            {
+              shot: "relatorios",
+              label: "Relatórios:",
+              text: "utilização e retorno por máquina, fluxo de caixa, inadimplência.",
+            },
           ].map((x, i) => (
-            <div key={x.shot} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
-              <Shot name={x.shot} width={800} height={500} delay={8 + i * 10} dark />
+            <div
+              key={x.shot}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 24,
+              }}
+            >
+              <Shot
+                name={x.shot}
+                width={800}
+                height={500}
+                delay={8 + i * 10}
+                dark
+              />
               <Rise delay={24 + i * 10}>
-                <div style={{ fontSize: 30, lineHeight: 1.4, color: MUTED_ON_DARK }}>
+                <div
+                  style={{
+                    fontSize: 28,
+                    lineHeight: 1.4,
+                    color: MUTED_ON_DARK,
+                  }}
+                >
                   <Hi>{x.label}</Hi> {x.text}
                 </div>
               </Rise>
             </div>
           ))}
-        </div>
+        </Flow>
       </Scene>
     ),
   },
@@ -1382,18 +1745,40 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 300,
     node: (
       <Scene dark>
-        <Heading eyebrow="Oportunidades" title="Seis caminhos para crescer" dark />
+        <Heading
+          eyebrow="Oportunidades"
+          title="Seis caminhos para crescer"
+          dark
+        />
         <Cards
           columns={3}
           start={12}
           dark
           items={[
-            { title: "Vender 24 horas", text: "O site recebe orçamentos fora do horário, já com preço." },
-            { title: "Ocupar a frota parada", text: "A agenda mostra o que está livre: base para promoções." },
-            { title: "Decidir a frota", text: "Retorno por máquina mostra o que comprar, manter ou vender." },
-            { title: "Atender obras maiores", text: "Medição pro-rata e boletim no formato que construtoras pedem." },
-            { title: "Peças e serviços", text: "OS para terceiros e vendas com estoque viram nova receita." },
-            { title: "Fidelizar", text: "Área do cliente com renovação e avisos pelo WhatsApp." },
+            {
+              title: "Vender 24 horas",
+              text: "O site recebe orçamentos fora do horário, já com preço.",
+            },
+            {
+              title: "Ocupar a frota parada",
+              text: "A agenda mostra o que está livre: base para promoções.",
+            },
+            {
+              title: "Decidir a frota",
+              text: "Retorno por máquina mostra o que comprar, manter ou vender.",
+            },
+            {
+              title: "Atender obras maiores",
+              text: "Medição pro-rata e boletim no formato que construtoras pedem.",
+            },
+            {
+              title: "Peças e serviços",
+              text: "OS para terceiros e vendas com estoque viram nova receita.",
+            },
+            {
+              title: "Fidelizar",
+              text: "Área do cliente com renovação e avisos pelo WhatsApp.",
+            },
           ]}
         />
       </Scene>
@@ -1403,7 +1788,11 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     duration: 240,
     node: (
       <Scene dark={false}>
-        <Heading eyebrow="Indicadores" title="Números para acompanhar todo mês" dark={false} />
+        <Heading
+          eyebrow="Indicadores"
+          title="Números para acompanhar todo mês"
+          dark={false}
+        />
         <Table
           widths="0.9fr 1.2fr"
           head={["Indicador", "Para que serve"]}
@@ -1429,12 +1818,30 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           start={10}
           dark={false}
           items={[
-            { title: "Nenhuma reserva dupla", text: "O sistema bloqueia o que já está comprometido." },
-            { title: "Nenhuma diária perdida", text: "Atraso, avaria e medição calculados sozinhos." },
-            { title: "Atendimento rápido", text: "Orçamento com preço e disponibilidade na hora." },
-            { title: "Caixa previsível", text: "Contas a receber geradas e cobradas em dia." },
-            { title: "Frota que rende", text: "Preventiva em dia e retorno por máquina." },
-            { title: "Sistema da casa", text: "No próprio site, com a marca da Dimaq." },
+            {
+              title: "Nenhuma reserva dupla",
+              text: "O sistema bloqueia o que já está comprometido.",
+            },
+            {
+              title: "Nenhuma diária perdida",
+              text: "Atraso, avaria e medição calculados sozinhos.",
+            },
+            {
+              title: "Atendimento rápido",
+              text: "Orçamento com preço e disponibilidade na hora.",
+            },
+            {
+              title: "Caixa previsível",
+              text: "Contas a receber geradas e cobradas em dia.",
+            },
+            {
+              title: "Frota que rende",
+              text: "Preventiva em dia e retorno por máquina.",
+            },
+            {
+              title: "Sistema da casa",
+              text: "No próprio site, com a marca da Dimaq.",
+            },
           ]}
         />
       </Scene>
@@ -1467,8 +1874,7 @@ scenes.forEach((s, i) => {
 
 const sceneStarts = scenes.map(
   (_, i) =>
-    scenes.slice(0, i).reduce((sum, s) => sum + s.duration, 0) -
-    i * TRANSITION,
+    scenes.slice(0, i).reduce((sum, s) => sum + s.duration, 0) - i * TRANSITION,
 );
 
 export const DIMAQ_DURATION =
@@ -1490,18 +1896,19 @@ const Caption: React.FC = () => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const portrait = usePortrait();
   return (
     <div
       style={{
         position: "absolute",
-        left: 128,
-        bottom: 34,
-        maxWidth: 1440,
+        left: portrait ? 40 : 128,
+        bottom: portrait ? 40 : 34,
+        maxWidth: portrait ? 770 : 1440,
         opacity,
         backgroundColor: "rgba(20,20,20,0.86)",
         color: "#FBFAF7",
         fontFamily: body,
-        fontSize: 28,
+        fontSize: portrait ? 30 : 28,
         lineHeight: 1.35,
         padding: "12px 22px",
         borderRadius: 10,
@@ -1541,6 +1948,7 @@ const CHAPTERS: { from: number; label: string }[] = [
 // Chapter pill at the top right that announces each part of the video.
 const ChapterPill: React.FC = () => {
   const frame = useCurrentFrame();
+  const portrait = usePortrait();
   const { fps } = useVideoConfig();
   let scene = 0;
   sceneStarts.forEach((start, i) => {
@@ -1563,8 +1971,8 @@ const ChapterPill: React.FC = () => {
     <div
       style={{
         position: "absolute",
-        right: 128,
-        top: 46,
+        right: portrait ? 40 : 128,
+        top: portrait ? 50 : 46,
         display: "flex",
         alignItems: "center",
         gap: 14,
@@ -1608,9 +2016,11 @@ const PresenterOverlay: React.FC = () => {
     config: { damping: 200 },
   });
   const appear = spring({ frame: frame - 8, fps, config: { damping: 14 } });
-  const size = interpolate(shrink, [0, 1], [400, 230]);
-  const right = interpolate(shrink, [0, 1], [70, 36]);
-  const bottom = interpolate(shrink, [0, 1], [340, 36]);
+  const portrait = usePortrait();
+  // Big next to the title at the start, then a small circle in the corner.
+  const size = interpolate(shrink, [0, 1], portrait ? [420, 220] : [400, 230]);
+  const right = interpolate(shrink, [0, 1], portrait ? [330, 36] : [70, 36]);
+  const bottom = interpolate(shrink, [0, 1], portrait ? [1340, 36] : [340, 36]);
   return (
     <div
       style={{
@@ -1629,40 +2039,44 @@ const PresenterOverlay: React.FC = () => {
   );
 };
 
-export const DimaqApresentacao: React.FC = () => {
+export const DimaqApresentacao: React.FC<{ portrait: boolean }> = ({
+  portrait,
+}) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   return (
-    <AbsoluteFill style={{ backgroundColor: DARK }}>
-      <Audio src={staticFile("dimaq/audio/narracao-e-musica.mp3")} />
-      <TransitionSeries>
-        {scenes.map((s, i) => (
-          <React.Fragment key={i}>
-            {i > 0 ? (
-              <TransitionSeries.Transition
-                presentation={transitionFor(i)}
-                timing={linearTiming({ durationInFrames: TRANSITION })}
-              />
-            ) : null}
-            <TransitionSeries.Sequence durationInFrames={s.duration}>
-              {s.node}
-            </TransitionSeries.Sequence>
-          </React.Fragment>
-        ))}
-      </TransitionSeries>
-      <Caption />
-      <ChapterPill />
-      <PresenterOverlay />
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          bottom: 0,
-          height: 8,
-          width: `${(frame / durationInFrames) * 100}%`,
-          backgroundColor: ACCENT,
-        }}
-      />
-    </AbsoluteFill>
+    <PortraitContext.Provider value={portrait}>
+      <AbsoluteFill style={{ backgroundColor: DARK }}>
+        <Audio src={staticFile("dimaq/audio/narracao-e-musica.mp3")} />
+        <TransitionSeries>
+          {scenes.map((s, i) => (
+            <React.Fragment key={i}>
+              {i > 0 ? (
+                <TransitionSeries.Transition
+                  presentation={transitionFor(i)}
+                  timing={linearTiming({ durationInFrames: TRANSITION })}
+                />
+              ) : null}
+              <TransitionSeries.Sequence durationInFrames={s.duration}>
+                {s.node}
+              </TransitionSeries.Sequence>
+            </React.Fragment>
+          ))}
+        </TransitionSeries>
+        <Caption />
+        <ChapterPill />
+        <PresenterOverlay />
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            bottom: 0,
+            height: 8,
+            width: `${(frame / durationInFrames) * 100}%`,
+            backgroundColor: ACCENT,
+          }}
+        />
+      </AbsoluteFill>
+    </PortraitContext.Provider>
   );
 };

@@ -16,6 +16,16 @@ export const RemotionRoot: React.FC = () => {
         fps={30}
         width={1920}
         height={1080}
+        defaultProps={{ portrait: false }}
+      />
+      <Composition
+        id="DimaqCelular"
+        component={DimaqApresentacao}
+        durationInFrames={DIMAQ_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{ portrait: true }}
       />
       <Folder name="Elements">
         <Composition
