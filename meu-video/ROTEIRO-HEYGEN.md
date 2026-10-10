@@ -15,8 +15,17 @@
 6. Antes de gerar, ouça a prévia de "Dimaq". Se a voz pronunciar errado, troque no texto por
    **"Dimáqui"** (só no roteiro do avatar; nas legendas continua "Dimaq").
 7. Exporte em **MP4, 720p** (fica mais leve para enviar; eu ajusto para Full HD na montagem).
-8. Me envie o arquivo aqui no chat. Se o plano do HeyGen limitar a duração, gere em 2 ou 3 partes
-   na ordem do roteiro e me mande todas: eu junto.
+8. O HeyGen permite no máximo 60 segundos por vídeo, então gere **4 vídeos** (Parte 1 a 4, abaixo),
+   com o mesmo avatar, a mesma voz e o mesmo fundo. Nomeie como `parte1.mp4` … `parte4.mp4`
+   e me envie os quatro: eu junto. Se uma parte passar de 60 s, mova o último parágrafo dela
+   para o começo da parte seguinte.
+
+## Divisão em 4 partes (até 60 s cada)
+
+- **Parte 1:** falas 1 a 5 (cerca de 52 s)
+- **Parte 2:** falas 6 a 10 (cerca de 41 s)
+- **Parte 3:** falas 11 a 17 (cerca de 52 s)
+- **Parte 4:** falas 18 a 23 (cerca de 45 s)
 
 ## Roteiro (23 falas, cerca de 3 minutos)
 

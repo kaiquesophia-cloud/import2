@@ -1,11 +1,18 @@
 import { loadFont } from "@remotion/fonts";
+import { clockWipe } from "@remotion/transitions/clock-wipe";
 import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
-import { linearTiming, TransitionSeries } from "@remotion/transitions";
+import { wipe } from "@remotion/transitions/wipe";
+import {
+  linearTiming,
+  TransitionPresentation,
+  TransitionSeries,
+} from "@remotion/transitions";
 import React from "react";
 import {
   AbsoluteFill,
   Audio,
+  Easing,
   Img,
   interpolate,
   spring,
@@ -43,10 +50,15 @@ const TRANSITION = 15;
 
 const img = (name: string) => staticFile(`dimaq/${name}.png`);
 
-const useEnter = (delay: number) => {
+const clamp = {
+  extrapolateLeft: "clamp",
+  extrapolateRight: "clamp",
+} as const;
+
+const useEnter = (delay: number, damping = 200) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  return spring({ frame: frame - delay, fps, config: { damping: 200 } });
+  return spring({ frame: frame - delay, fps, config: { damping } });
 };
 
 const Rise: React.FC<{
@@ -68,6 +80,111 @@ const Rise: React.FC<{
   );
 };
 
+// Each word slides up out of a mask, one after the other.
+const WordReveal: React.FC<{
+  lines: React.ReactNode[][];
+  delay: number;
+  stagger?: number;
+}> = ({ lines, delay, stagger = 3 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  let index = 0;
+  return (
+    <>
+      {lines.map((words, l) => (
+        <div key={l}>
+          {words.map((w, i) => {
+            const p = spring({
+              frame: frame - delay - index++ * stagger,
+              fps,
+              config: { damping: 18, mass: 0.6 },
+            });
+            return (
+              <span
+                key={i}
+                style={{
+                  display: "inline-block",
+                  overflow: "hidden",
+                  verticalAlign: "top",
+                  paddingBottom: "0.14em",
+                  marginBottom: "-0.14em",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    transform: `translateY(${(1 - p) * 110}%) rotate(${(1 - p) * 6}deg)`,
+                  }}
+                >
+                  {w}
+                  {i < words.length - 1 ? " " : ""}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+};
+
+const words = (text: string) => [text.split(" ")];
+
+// Slowly moving background: glows and a drifting grid.
+const Backdrop: React.FC<{ variant: "dark" | "light" | "accent" }> = ({
+  variant,
+}) => {
+  const frame = useCurrentFrame();
+  const gx = Math.sin(frame / 80) * 160;
+  const gy = Math.cos(frame / 95) * 90;
+  if (variant === "accent") {
+    return (
+      <AbsoluteFill
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(115deg, rgba(31,31,31,0.07) 0px, rgba(31,31,31,0.07) 40px, transparent 40px, transparent 120px)",
+          backgroundPosition: `${frame * 1.2}px 0px`,
+        }}
+      />
+    );
+  }
+  const line =
+    variant === "dark" ? "rgba(255,255,255,0.035)" : "rgba(31,31,31,0.045)";
+  return (
+    <AbsoluteFill>
+      <AbsoluteFill
+        style={{
+          backgroundImage: `linear-gradient(${line} 1px, transparent 1px), linear-gradient(90deg, ${line} 1px, transparent 1px)`,
+          backgroundSize: "80px 80px",
+          backgroundPosition: `${frame * 0.4}px ${frame * 0.25}px`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          width: 1100,
+          height: 1100,
+          left: 1250 + gx,
+          top: -450 + gy,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, rgba(245,165,0,${variant === "dark" ? 0.16 : 0.13}) 0%, rgba(245,165,0,0) 65%)`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          width: 900,
+          height: 900,
+          left: -400 - gx * 0.6,
+          top: 520 - gy,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, rgba(245,165,0,${variant === "dark" ? 0.1 : 0.08}) 0%, rgba(245,165,0,0) 65%)`,
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
 const Scene: React.FC<{
   dark: boolean;
   children: React.ReactNode;
@@ -83,6 +200,7 @@ const Scene: React.FC<{
       gap: 44,
     }}
   >
+    <Backdrop variant={accent ? "accent" : dark ? "dark" : "light"} />
     {children}
   </AbsoluteFill>
 );
@@ -91,24 +209,34 @@ const Heading: React.FC<{ eyebrow?: string; title: string; dark: boolean }> = ({
   eyebrow,
   title,
   dark,
-}) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-    {eyebrow ? (
-      <Rise delay={0}>
-        <div
-          style={{
-            fontSize: 26,
-            fontWeight: 700,
-            letterSpacing: 5,
-            textTransform: "uppercase",
-            color: dark ? ACCENT : EYEBROW_ON_LIGHT,
-          }}
-        >
-          {eyebrow}
+}) => {
+  const line = useEnter(0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {eyebrow ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <div
+            style={{
+              width: interpolate(line, [0, 1], [0, 56]),
+              height: 5,
+              backgroundColor: ACCENT,
+            }}
+          />
+          <Rise delay={4}>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                letterSpacing: 5,
+                textTransform: "uppercase",
+                color: dark ? ACCENT : EYEBROW_ON_LIGHT,
+              }}
+            >
+              {eyebrow}
+            </div>
+          </Rise>
         </div>
-      </Rise>
-    ) : null}
-    <Rise delay={4}>
+      ) : null}
       <div
         style={{
           fontFamily: display,
@@ -117,51 +245,130 @@ const Heading: React.FC<{ eyebrow?: string; title: string; dark: boolean }> = ({
           lineHeight: 1.1,
         }}
       >
-        {title}
+        <WordReveal lines={words(title)} delay={6} />
       </div>
-    </Rise>
-  </div>
-);
+    </div>
+  );
+};
 
+type Focus = { x: number; y: number; w: number; h: number; at: number };
+
+// A screenshot that swings in in 3D, floats, gets a light sweep and can zoom
+// into a highlighted region (x, y, w, h are fractions of the image).
 const Shot: React.FC<{
   name: string;
   width: number;
   height: number;
   delay: number;
   dark: boolean;
-}> = ({ name, width, height, delay, dark }) => {
+  focus?: Focus;
+  tilt?: number;
+}> = ({ name, width, height, delay, dark, focus, tilt = 1 }) => {
   const frame = useCurrentFrame();
-  const p = useEnter(delay);
-  const zoom = interpolate(frame, [delay, delay + 240], [1, 1.06], {
-    extrapolateRight: "clamp",
-    extrapolateLeft: "clamp",
-  });
+  const { fps } = useVideoConfig();
+  const p = spring({ frame: frame - delay, fps, config: { damping: 16, mass: 0.9 } });
+  const float = Math.sin((frame - delay) / 45) * 6;
+  const shine = interpolate(frame, [delay + 12, delay + 42], [-60, 160], clamp);
+  const f = focus
+    ? spring({ frame: frame - focus.at, fps, config: { damping: 200 }, durationInFrames: 40 })
+    : 0;
+  const zoom = 1 + f * 0.32 + interpolate(frame, [delay, delay + 300], [0, 0.03], clamp);
+  const origin = focus
+    ? `${(focus.x + focus.w / 2) * 100}% ${(focus.y + focus.h / 2) * 100}%`
+    : "50% 50%";
+  const pulse = 1 + Math.sin(frame / 5) * 0.5;
   return (
-    <div
-      style={{
-        width,
-        height,
-        borderRadius: 16,
-        overflow: "hidden",
-        opacity: p,
-        transform: `scale(${interpolate(p, [0, 1], [0.94, 1])})`,
-        boxShadow: dark
-          ? "0 30px 80px rgba(0,0,0,0.55)"
-          : "0 24px 60px rgba(31,31,31,0.18)",
-        border: dark ? "1px solid #3A3A3A" : "1px solid #E2DED6",
-        backgroundColor: "#FBFAF7",
-        flexShrink: 0,
-      }}
-    >
-      <Img
-        src={img(name)}
+    <div style={{ perspective: 1800, flexShrink: 0 }}>
+      <div
         style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          transform: `scale(${zoom})`,
+          width,
+          height,
+          borderRadius: 16,
+          overflow: "hidden",
+          position: "relative",
+          opacity: Math.min(1, p * 1.4),
+          transform: `translateY(${float}px) rotateY(${(1 - p) * -28 * tilt}deg) rotateX(${(1 - p) * 8}deg) scale(${interpolate(p, [0, 1], [0.86, 1])})`,
+          boxShadow: dark
+            ? "0 40px 90px rgba(0,0,0,0.6)"
+            : "0 30px 70px rgba(31,31,31,0.22)",
+          border: dark ? "1px solid #3A3A3A" : "1px solid #E2DED6",
+          backgroundColor: "#FBFAF7",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transform: `scale(${zoom})`,
+            transformOrigin: origin,
+          }}
+        >
+          <Img
+            src={img(name)}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+          {focus ? (
+            <div
+              style={{
+                position: "absolute",
+                left: `${focus.x * 100}%`,
+                top: `${focus.y * 100}%`,
+                width: `${focus.w * 100}%`,
+                height: `${focus.h * 100}%`,
+                borderRadius: 10,
+                border: `${3 + pulse}px solid ${ACCENT}`,
+                boxShadow: `0 0 0 4000px rgba(20,20,20,${0.45 * f}), 0 0 30px rgba(245,165,0,${0.6 * f})`,
+                opacity: f,
+              }}
+            />
+          ) : null}
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${shine}%`,
+            width: "30%",
+            background:
+              "linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0) 100%)",
+            transform: "skewX(-15deg)",
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const Point: React.FC<{
+  delay: number;
+  dark: boolean;
+  children: React.ReactNode;
+}> = ({ delay, dark, children }) => {
+  const p = useEnter(delay);
+  const bar = useEnter(delay - 4);
+  return (
+    <div style={{ display: "flex", gap: 24 }}>
+      <div
+        style={{
+          width: 6,
+          backgroundColor: ACCENT,
+          borderRadius: 3,
+          transform: `scaleY(${bar})`,
+          transformOrigin: "top",
         }}
       />
+      <div
+        style={{
+          fontSize: 34,
+          lineHeight: 1.4,
+          color: dark ? MUTED_ON_DARK : MUTED_ON_LIGHT,
+          opacity: p,
+          transform: `translateX(${interpolate(p, [0, 1], [40, 0])}px)`,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 };
@@ -173,19 +380,9 @@ const Points: React.FC<{
 }> = ({ items, dark, start }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 30, flex: 1 }}>
     {items.map((item, i) => (
-      <Rise key={i} delay={start + i * 12}>
-        <div
-          style={{
-            fontSize: 34,
-            lineHeight: 1.4,
-            color: dark ? MUTED_ON_DARK : MUTED_ON_LIGHT,
-            borderLeft: `6px solid ${ACCENT}`,
-            paddingLeft: 24,
-          }}
-        >
-          {item}
-        </div>
-      </Rise>
+      <Point key={i} delay={start + i * 14} dark={dark}>
+        {item}
+      </Point>
     ))}
   </div>
 );
@@ -202,6 +399,57 @@ const B: React.FC<{ children: React.ReactNode; dark: boolean }> = ({
   </span>
 );
 
+const brl = (v: number) =>
+  v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const CountUp: React.FC<{ value: number; delay: number }> = ({
+  value,
+  delay,
+}) => {
+  const frame = useCurrentFrame();
+  const p = interpolate(frame, [delay, delay + 40], [0, 1], {
+    ...clamp,
+    easing: Easing.out(Easing.cubic),
+  });
+  return <>R$ {brl(value * p)}</>;
+};
+
+type Badge = { label: string; value: number; at: number };
+
+// Floating money badge that pops in and counts up.
+const MoneyBadge: React.FC<{ badge: Badge; dark: boolean }> = ({
+  badge,
+  dark,
+}) => {
+  const frame = useCurrentFrame();
+  const p = useEnter(badge.at, 12);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right: 110,
+        top: 120,
+        transform: `scale(${p}) rotate(${(1 - p) * -8}deg) translateY(${Math.sin(frame / 20) * 4}px)`,
+        backgroundColor: dark ? ACCENT : DARK,
+        color: dark ? DARK : ACCENT,
+        borderRadius: 20,
+        padding: "18px 30px",
+        boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+      }}
+    >
+      <div style={{ fontSize: 24, fontWeight: 600, opacity: 0.85 }}>
+        {badge.label}
+      </div>
+      <div style={{ fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1.1 }}>
+        <CountUp value={badge.value} delay={badge.at + 6} />
+      </div>
+    </div>
+  );
+};
+
 const ScreenScene: React.FC<{
   dark: boolean;
   eyebrow: string;
@@ -209,11 +457,21 @@ const ScreenScene: React.FC<{
   shot: string;
   points: React.ReactNode[];
   shotLeft?: boolean;
-}> = ({ dark, eyebrow, title, shot, points, shotLeft }) => {
+  focus?: Focus;
+  badge?: Badge;
+}> = ({ dark, eyebrow, title, shot, points, shotLeft, focus, badge }) => {
   const s = (
-    <Shot name={shot} width={1040} height={650} delay={10} dark={dark} />
+    <Shot
+      name={shot}
+      width={1040}
+      height={650}
+      delay={10}
+      dark={dark}
+      focus={focus}
+      tilt={shotLeft ? -1 : 1}
+    />
   );
-  const p = <Points items={points} dark={dark} start={22} />;
+  const p = <Points items={points} dark={dark} start={24} />;
   return (
     <Scene dark={dark}>
       <Heading eyebrow={eyebrow} title={title} dark={dark} />
@@ -221,7 +479,72 @@ const ScreenScene: React.FC<{
         {shotLeft ? s : p}
         {shotLeft ? p : s}
       </div>
+      {badge ? <MoneyBadge badge={badge} dark={dark} /> : null}
     </Scene>
+  );
+};
+
+const Card: React.FC<{
+  delay: number;
+  dark: boolean;
+  title: string;
+  text: string;
+  index: number;
+}> = ({ delay, dark, title, text, index }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame: frame - delay, fps, config: { damping: 14, mass: 0.8 } });
+  const bar = spring({ frame: frame - delay - 10, fps, config: { damping: 200 } });
+  return (
+    <div style={{ perspective: 1200, height: "100%" }}>
+      <div
+        style={{
+          backgroundColor: dark ? "#2A2A2A" : DARK,
+          borderRadius: 18,
+          padding: "36px 40px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          height: "100%",
+          position: "relative",
+          overflow: "hidden",
+          opacity: Math.min(1, p * 1.5),
+          transform: `rotateX(${(1 - p) * 60}deg) scale(${interpolate(p, [0, 1], [0.85, 1])})`,
+          transformOrigin: "50% 100%",
+          boxShadow: "0 18px 40px rgba(0,0,0,0.25)",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            height: 6,
+            width: `${bar * 100}%`,
+            backgroundColor: ACCENT,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: 28,
+            top: 14,
+            fontFamily: display,
+            fontSize: 64,
+            fontWeight: 700,
+            color: "rgba(245,165,0,0.16)",
+          }}
+        >
+          0{index + 1}
+        </div>
+        <div style={{ fontSize: 38, fontWeight: 700, color: ACCENT }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 29, lineHeight: 1.4, color: "#E4DFD7" }}>
+          {text}
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -239,38 +562,45 @@ const Cards: React.FC<{
     }}
   >
     {items.map((c, i) => (
-      <Rise key={c.title} delay={start + i * 8}>
-        <div
-          style={{
-            backgroundColor: dark ? "#2A2A2A" : DARK,
-            borderRadius: 18,
-            padding: "36px 40px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            height: "100%",
-          }}
-        >
-          <div style={{ fontSize: 38, fontWeight: 700, color: ACCENT }}>
-            {c.title}
-          </div>
-          <div style={{ fontSize: 29, lineHeight: 1.4, color: "#E4DFD7" }}>
-            {c.text}
-          </div>
-        </div>
-      </Rise>
+      <Card
+        key={c.title}
+        delay={start + i * 7}
+        dark={dark}
+        title={c.title}
+        text={c.text}
+        index={i}
+      />
     ))}
   </div>
 );
 
-const Divider: React.FC<{ eyebrow: string; title: string; text: string }> = ({
-  eyebrow,
-  title,
-  text,
-}) => {
+const Divider: React.FC<{
+  eyebrow: string;
+  title: string;
+  text: string;
+  stats?: { label: string; value: number }[];
+}> = ({ eyebrow, title, text, stats }) => {
+  const frame = useCurrentFrame();
   const p = useEnter(0);
   return (
     <Scene dark accent>
+      <div
+        style={{
+          position: "absolute",
+          right: -60,
+          bottom: -80,
+          fontFamily: display,
+          fontSize: 420,
+          fontWeight: 700,
+          lineHeight: 1,
+          color: "transparent",
+          WebkitTextStroke: "3px rgba(31,31,31,0.14)",
+          transform: `translateX(${-frame * 1.5}px)`,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {eyebrow}
+      </div>
       <div
         style={{
           flex: 1,
@@ -288,32 +618,111 @@ const Divider: React.FC<{ eyebrow: string; title: string; text: string }> = ({
           }}
         />
         <Rise delay={4}>
-          <div
-            style={{ fontSize: 30, fontWeight: 700, letterSpacing: 6 }}
-          >
+          <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: 6 }}>
             {eyebrow}
           </div>
         </Rise>
-        <Rise delay={8}>
-          <div
-            style={{
-              fontFamily: display,
-              fontSize: 128,
-              fontWeight: 700,
-              lineHeight: 1.05,
-              maxWidth: 1500,
-            }}
-          >
-            {title}
+        <div
+          style={{
+            fontFamily: display,
+            fontSize: 120,
+            fontWeight: 700,
+            lineHeight: 1.05,
+            maxWidth: 1500,
+          }}
+        >
+          <WordReveal lines={words(title)} delay={8} stagger={2} />
+        </div>
+        {stats ? (
+          <div style={{ display: "flex", gap: 28, marginTop: 10 }}>
+            {stats.map((s, i) => (
+              <Rise key={s.label} delay={22 + i * 6}>
+                <div
+                  style={{
+                    backgroundColor: DARK,
+                    color: ACCENT,
+                    borderRadius: 16,
+                    padding: "18px 30px",
+                  }}
+                >
+                  <div style={{ fontFamily: display, fontSize: 60, fontWeight: 700 }}>
+                    <CountUp value={s.value} delay={24 + i * 6} />
+                  </div>
+                  <div style={{ fontSize: 24, color: "#E4DFD7" }}>{s.label}</div>
+                </div>
+              </Rise>
+            ))}
           </div>
-        </Rise>
-        <Rise delay={18}>
-          <div style={{ fontSize: 38, lineHeight: 1.4, maxWidth: 1400 }}>
-            {text}
-          </div>
-        </Rise>
+        ) : (
+          <Rise delay={18}>
+            <div style={{ fontSize: 38, lineHeight: 1.4, maxWidth: 1400 }}>
+              {text}
+            </div>
+          </Rise>
+        )}
       </div>
     </Scene>
+  );
+};
+
+const TableRow: React.FC<{
+  delay: number;
+  cells: string[];
+  widths: string;
+  shade: boolean;
+}> = ({ delay, cells, widths, shade }) => {
+  const p = useEnter(delay);
+  const sweep = useEnter(delay + 4);
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "grid",
+        gridTemplateColumns: widths,
+        fontSize: 29,
+        padding: "16px 28px",
+        backgroundColor: shade ? "#EFEBE4" : "#FBFAF7",
+        color: DARK,
+        opacity: p,
+        transform: `translateX(${interpolate(p, [0, 1], [-80, 0])}px)`,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 6,
+          backgroundColor: ACCENT,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: `${interpolate(sweep, [0, 1], [-30, 110])}%`,
+          width: "25%",
+          background:
+            "linear-gradient(90deg, rgba(245,165,0,0) 0%, rgba(245,165,0,0.18) 50%, rgba(245,165,0,0) 100%)",
+        }}
+      />
+      {cells.map((c, j) => (
+        <div
+          key={j}
+          style={{
+            fontWeight: j === 0 ? 700 : 400,
+            color: j === 0 ? DARK : MUTED_ON_LIGHT,
+            paddingRight: 24,
+            position: "relative",
+          }}
+        >
+          {c}
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -322,64 +731,110 @@ const Table: React.FC<{
   rows: string[][];
   start: number;
   widths: string;
-}> = ({ head, rows, start, widths }) => (
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      borderRadius: 14,
-      overflow: "hidden",
-    }}
-  >
+}> = ({ head, rows, start, widths }) => {
+  const p = useEnter(start - 6);
+  return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: widths,
-        backgroundColor: DARK,
-        color: ACCENT,
-        fontWeight: 700,
-        fontSize: 30,
-        padding: "18px 28px",
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: 14,
+        overflow: "hidden",
+        boxShadow: "0 24px 60px rgba(31,31,31,0.12)",
       }}
     >
-      {head.map((h) => (
-        <div key={h}>{h}</div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: widths,
+          backgroundColor: DARK,
+          color: ACCENT,
+          fontWeight: 700,
+          fontSize: 30,
+          padding: "18px 28px",
+          transform: `scaleX(${interpolate(p, [0, 1], [0.6, 1])})`,
+          opacity: p,
+        }}
+      >
+        {head.map((h) => (
+          <div key={h}>{h}</div>
+        ))}
+      </div>
+      {rows.map((r, i) => (
+        <TableRow
+          key={r[0]}
+          delay={start + i * 9}
+          cells={r}
+          widths={widths}
+          shade={i % 2 === 1}
+        />
       ))}
     </div>
-    {rows.map((r, i) => (
-      <Rise key={r[0]} delay={start + i * 10}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: widths,
-            fontSize: 29,
-            padding: "16px 28px",
-            backgroundColor: i % 2 ? "#EFEBE4" : "#FBFAF7",
-            color: DARK,
-          }}
-        >
-          {r.map((c, j) => (
-            <div
-              key={j}
-              style={{
-                fontWeight: j === 0 ? 700 : 400,
-                color: j === 0 ? DARK : MUTED_ON_LIGHT,
-                paddingRight: 24,
-              }}
-            >
-              {c}
-            </div>
-          ))}
-        </div>
-      </Rise>
-    ))}
-  </div>
-);
+  );
+};
+
+const Rings: React.FC<{ cx: number; cy: number; base: number }> = ({
+  cx,
+  cy,
+  base,
+}) => {
+  const frame = useCurrentFrame();
+  const p = useEnter(4);
+  return (
+    <svg
+      width={1920}
+      height={1080}
+      style={{ position: "absolute", left: 0, top: 0, opacity: p }}
+    >
+      {[0, 1, 2].map((i) => (
+        <circle
+          key={i}
+          cx={cx}
+          cy={cy}
+          r={base + i * 46 + Math.sin(frame / 20 + i) * 4}
+          fill="none"
+          stroke={ACCENT}
+          strokeOpacity={0.5 - i * 0.14}
+          strokeWidth={i === 0 ? 3 : 2}
+          strokeDasharray={i === 1 ? "14 18" : i === 2 ? "4 14" : undefined}
+          transform={`rotate(${frame * (i % 2 ? -0.6 : 0.4)} ${cx} ${cy})`}
+        />
+      ))}
+    </svg>
+  );
+};
+
+const LogoShine: React.FC<{ width: number; delay: number }> = ({
+  width,
+  delay,
+}) => {
+  const frame = useCurrentFrame();
+  const x = interpolate(frame, [delay, delay + 30], [-40, 140], clamp);
+  return (
+    <div style={{ position: "relative", width, overflow: "hidden" }}>
+      <Img src={img("logo")} style={{ width, display: "block" }} />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: `${x}%`,
+          width: "25%",
+          background:
+            "linear-gradient(100deg, rgba(31,31,31,0) 0%, rgba(245,165,0,0.55) 50%, rgba(31,31,31,0) 100%)",
+          mixBlendMode: "screen",
+          transform: "skewX(-15deg)",
+        }}
+      />
+    </div>
+  );
+};
 
 const Intro: React.FC = () => {
   const p = useEnter(0);
   return (
     <Scene dark>
+      <Rings cx={1650} cy={540} base={240} />
       <div
         style={{
           position: "absolute",
@@ -402,7 +857,7 @@ const Intro: React.FC = () => {
         }}
       >
         <Rise delay={0}>
-          <Img src={img("logo")} style={{ width: 460 }} />
+          <LogoShine width={460} delay={20} />
         </Rise>
         <Rise delay={10}>
           <div
@@ -416,21 +871,23 @@ const Intro: React.FC = () => {
             APRESENTAÇÃO DO NOVO SISTEMA
           </div>
         </Rise>
-        <Rise delay={18}>
-          <div
-            style={{
-              fontFamily: display,
-              fontSize: 128,
-              fontWeight: 700,
-              lineHeight: 1.05,
-            }}
-          >
-            Cada diária cobrada.
-            <br />
-            Cada máquina rendendo.
-          </div>
-        </Rise>
-        <Rise delay={34}>
+        <div
+          style={{
+            fontFamily: display,
+            fontSize: 128,
+            fontWeight: 700,
+            lineHeight: 1.05,
+          }}
+        >
+          <WordReveal
+            delay={16}
+            lines={[
+              ["Cada", "diária", "cobrada."],
+              ["Cada", "máquina", <span key="r" style={{ color: ACCENT }}>rendendo.</span>],
+            ]}
+          />
+        </div>
+        <Rise delay={40}>
           <div style={{ fontSize: 36, color: MUTED_ON_DARK, maxWidth: 1200 }}>
             Locação, medição, ordens de serviço, financeiro e site em um só
             lugar, feitos sob medida para a Dimaq.
@@ -441,23 +898,26 @@ const Intro: React.FC = () => {
   );
 };
 
-const Outro: React.FC = () => (
-  <Scene dark>
-    <div
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 40,
-        textAlign: "center",
-      }}
-    >
-      <Rise delay={0}>
-        <Img src={img("logo")} style={{ width: 520 }} />
-      </Rise>
-      <Rise delay={12}>
+const Outro: React.FC = () => {
+  const frame = useCurrentFrame();
+  const logo = useEnter(0, 12);
+  return (
+    <Scene dark>
+      <Rings cx={960} cy={500} base={330} />
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 40,
+          textAlign: "center",
+        }}
+      >
+        <div style={{ transform: `scale(${logo * (1 + Math.sin(frame / 30) * 0.015)})` }}>
+          <LogoShine width={520} delay={14} />
+        </div>
         <div
           style={{
             fontFamily: display,
@@ -466,20 +926,29 @@ const Outro: React.FC = () => (
             lineHeight: 1.1,
           }}
         >
-          Gestão de locações
-          <br />
-          <span style={{ color: ACCENT }}>em um só lugar</span>
+          <WordReveal
+            delay={10}
+            lines={[
+              ["Gestão", "de", "locações"],
+              [
+                <span key="a" style={{ color: ACCENT }}>em</span>,
+                <span key="b" style={{ color: ACCENT }}>um</span>,
+                <span key="c" style={{ color: ACCENT }}>só</span>,
+                <span key="d" style={{ color: ACCENT }}>lugar</span>,
+              ],
+            ]}
+          />
         </div>
-      </Rise>
-      <Rise delay={28}>
-        <div style={{ fontSize: 32, color: "#A8A29A" }}>
-          Desenvolvido por{" "}
-          <span style={{ color: LIGHT, fontWeight: 700 }}>SEO AMPLIFY</span>
-        </div>
-      </Rise>
-    </div>
-  </Scene>
-);
+        <Rise delay={32}>
+          <div style={{ fontSize: 32, color: "#A8A29A" }}>
+            Desenvolvido por{" "}
+            <span style={{ color: LIGHT, fontWeight: 700 }}>SEO AMPLIFY</span>
+          </div>
+        </Rise>
+      </div>
+    </Scene>
+  );
+};
 
 const scenes: { duration: number; node: React.ReactNode }[] = [
   { duration: 180, node: <Intro /> },
@@ -541,6 +1010,8 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Painel"
         title="O dia inteiro numa tela"
         shot="painel"
+        focus={{ x: 0.19, y: 0.17, w: 0.79, h: 0.28, at: 80 }}
+        badge={{ label: "Vencido a receber, em destaque", value: 1315, at: 120 }}
         points={[
           <>Cada locação vira um cartão com <Hi>contagem regressiva</Hi>.</>,
           <>Atrasos, devoluções do dia, pedidos do site e vencidos em indicadores.</>,
@@ -558,6 +1029,7 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Nova locação"
         title="Preço certo, sem conflito de reserva"
         shot="novaloc"
+        focus={{ x: 0.73, y: 0.46, w: 0.25, h: 0.18, at: 90 }}
         points={[
           <><B dark={false}>Disponibilidade ao vivo</B> por peça ou por quantidade.</>,
           <><B dark={false}>Melhor tarifa automática:</B> 10 dias = 1 semana + 3 diárias.</>,
@@ -597,6 +1069,8 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Devolução"
         title="Nenhuma diária esquecida"
         shot="devolucao"
+        focus={{ x: 0.17, y: 0.64, w: 0.66, h: 0.15, at: 80 }}
+        badge={{ label: "2 diárias de atraso cobradas", value: 660, at: 110 }}
         points={[
           <><Hi>Devolução parcial:</Hi> voltam 50 de 60 andaimes e o contrato segue com o resto.</>,
           <><Hi>Atraso</Hi> calculado e lançado sozinho: 2 dias = R$ 660,00.</>,
@@ -614,6 +1088,8 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Cobrança por medição"
         title="Pro-rata: cobra só o que ficou na obra"
         shot="medicao"
+        focus={{ x: 0.17, y: 0.41, w: 0.66, h: 0.11, at: 80 }}
+        badge={{ label: "Medição pro-rata do ciclo", value: 2270, at: 110 }}
         points={[
           <>A cada ciclo, soma <B dark={false}>quantidade × dias</B> de cada item.</>,
           <>Devolução parcial e item novo entram pela data real.</>,
@@ -629,6 +1105,11 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="ECONOMIA"
         title="Onde o sistema devolve dinheiro para o caixa"
         text="Receita que escapava, custos que eram do cliente e horas de trabalho manual."
+        stats={[
+          { label: "diárias de atraso", value: 660 },
+          { label: "medição pro-rata", value: 2270 },
+          { label: "vencido em destaque", value: 1315 },
+        ]}
       />
     ),
   },
@@ -722,6 +1203,7 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Ordens de serviço"
         title="Máquina revisada é máquina alugando"
         shot="os"
+        focus={{ x: 0.19, y: 0.53, w: 0.53, h: 0.11, at: 90 }}
         points={[
           <><B dark={false}>Preventiva por horímetro</B> (ex.: a cada 250 h), com alerta no painel.</>,
           <>Corretiva, revisão de retorno e serviço para cliente.</>,
@@ -961,6 +1443,93 @@ const Caption: React.FC = () => {
   );
 };
 
+const DIVIDERS = [8, 11, 17];
+
+// Dividers open with a clock wipe; other scenes rotate through a few moves.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const transitionFor = (i: number): TransitionPresentation<any> => {
+  if (DIVIDERS.includes(i) || DIVIDERS.includes(i - 1)) {
+    return clockWipe({ width: 1920, height: 1080 });
+  }
+  const moves = [
+    slide({ direction: "from-right" }),
+    wipe({ direction: "from-left" }),
+    slide({ direction: "from-bottom" }),
+    fade(),
+  ];
+  return moves[i % moves.length];
+};
+
+const CHAPTERS: { from: number; label: string }[] = [
+  { from: 1, label: "O desafio" },
+  { from: 2, label: "O sistema" },
+  { from: 8, label: "Economia" },
+  { from: 11, label: "Qualidade" },
+  { from: 17, label: "Oportunidades" },
+  { from: 20, label: "Resultado" },
+];
+
+// Chapter pill at the top right that announces each part of the video.
+const ChapterPill: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  let scene = 0;
+  sceneStarts.forEach((start, i) => {
+    if (frame >= start) {
+      scene = i;
+    }
+  });
+  if (scene === 0 || scene === scenes.length - 1) {
+    return null;
+  }
+  let chapter = 0;
+  CHAPTERS.forEach((c, i) => {
+    if (scene >= c.from) {
+      chapter = i;
+    }
+  });
+  const start = sceneStarts[CHAPTERS[chapter].from];
+  const p = spring({ frame: frame - start - 6, fps, config: { damping: 14 } });
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right: 128,
+        top: 46,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        backgroundColor: "rgba(20,20,20,0.88)",
+        color: LIGHT,
+        fontFamily: body,
+        fontSize: 24,
+        fontWeight: 700,
+        letterSpacing: 2,
+        textTransform: "uppercase",
+        padding: "10px 22px",
+        borderRadius: 999,
+        transform: `translateY(${(1 - p) * -60}px)`,
+        opacity: p,
+      }}
+    >
+      <div style={{ display: "flex", gap: 6 }}>
+        {CHAPTERS.map((c, i) => (
+          <div
+            key={c.label}
+            style={{
+              width: i === chapter ? 26 : 10,
+              height: 10,
+              borderRadius: 5,
+              backgroundColor: i <= chapter ? ACCENT : "#555",
+            }}
+          />
+        ))}
+      </div>
+      {CHAPTERS[chapter].label}
+    </div>
+  );
+};
+
 const PresenterOverlay: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -1002,7 +1571,7 @@ export const DimaqApresentacao: React.FC = () => {
           <React.Fragment key={i}>
             {i > 0 ? (
               <TransitionSeries.Transition
-                presentation={i % 2 ? fade() : slide({ direction: "from-right" })}
+                presentation={transitionFor(i)}
                 timing={linearTiming({ durationInFrames: TRANSITION })}
               />
             ) : null}
@@ -1013,6 +1582,7 @@ export const DimaqApresentacao: React.FC = () => {
         ))}
       </TransitionSeries>
       <Caption />
+      <ChapterPill />
       <PresenterOverlay />
       <div
         style={{
