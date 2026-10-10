@@ -43,7 +43,7 @@
 
 7. Na devolução, nenhuma diária fica esquecida. O atraso é calculado e lançado automaticamente, e a avaria vira cobrança e já abre a ordem de serviço.
 
-8. Para as obras, a cobrança por medição é pró-rata: o sistema cobra só o que realmente ficou na obra, e já gera o boletim de medição.
+8. Na cobrança, cada contrato escolhe o formato: o período fechado, por diária, semana ou mês, ou a medição pró-rata, ideal para obras, que cobra só o que realmente ficou com o cliente e já gera o boletim de medição.
 
 9. Agora, vamos falar de economia.
 

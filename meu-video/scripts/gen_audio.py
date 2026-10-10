@@ -21,7 +21,7 @@ lines = [
     "Na nova locação, o sistema mostra a disponibilidade ao vivo e aplica a melhor tarifa sozinho. Se não houver estoque no período, ele só salva como orçamento. Reserva dupla, nunca mais.",
     "No quadro, você arrasta o cartão e o sistema faz a reserva, a entrega ou a devolução. Na agenda, cada equipamento aparece numa linha do tempo.",
     "Na devolução, nenhuma diária fica esquecida. O atraso é calculado e lançado automaticamente, e a avaria vira cobrança e já abre a ordem de serviço.",
-    "Para as obras, a cobrança por medição é pró-rata: o sistema cobra só o que realmente ficou na obra, e já gera o boletim de medição.",
+    "Na cobrança, cada contrato escolhe o formato: o período fechado, por diária, semana ou mês, ou a medição pró-rata, ideal para obras, que cobra só o que realmente ficou com o cliente e já gera o boletim de medição.",
     "Agora, vamos falar de economia.",
     "O sistema devolve ao caixa o dinheiro que escapava: diárias excedentes, avarias, multa e juros, e os valores vencidos, que agora aparecem logo no painel.",
     "E economiza o tempo da equipe. Orçar, saber quem devolve hoje, fazer a medição e fechar o mês deixam de ser trabalho manual.",
@@ -44,7 +44,7 @@ kokoro = Kokoro(f"{here}/kokoro.onnx", f"{here}/voices.bin")
 clips = []
 durations = []
 for text in lines:
-    audio, sr = kokoro.create(text, voice=VOICE, speed=1.05, lang="pt-br")
+    audio, sr = kokoro.create(text, voice=VOICE, speed=1.0, lang="pt-br")
     n = int(len(audio) * SR / sr)
     audio = np.interp(np.linspace(0, len(audio) - 1, n), np.arange(len(audio)), audio)
     clips.append(audio.astype(np.float32))

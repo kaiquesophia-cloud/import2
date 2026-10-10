@@ -20,11 +20,36 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import {
+  BillingModes,
+  Cursor,
+  DragDemo,
+  HourGauge,
+  Hub,
+  LateTimeline,
+  LeakTank,
+  PhoneToast,
+  SendLinks,
+  StepsProgress,
+  TariffBlocks,
+} from "./Explainers";
 import { Presenter } from "./Presenter";
+import {
+  ACCENT,
+  body,
+  brl,
+  clamp,
+  DANGER,
+  DARK,
+  display,
+  EYEBROW_ON_LIGHT,
+  LIGHT,
+  MUTED_ON_DARK,
+  MUTED_ON_LIGHT,
+  OK,
+} from "./theme";
 import timing from "./timing.json";
 
-const display = "Oswald";
-const body = "Public Sans";
 
 loadFont({
   family: display,
@@ -39,21 +64,11 @@ for (const weight of ["400", "600", "700"]) {
   });
 }
 
-const DARK = "#1F1F1F";
-const LIGHT = "#F4F2EE";
-const ACCENT = "#F5A500";
-const EYEBROW_ON_LIGHT = "#8A5A00";
-const MUTED_ON_DARK = "#C9C4BC";
-const MUTED_ON_LIGHT = "#4A4744";
 
 const TRANSITION = 15;
 
 const img = (name: string) => staticFile(`dimaq/${name}.png`);
 
-const clamp = {
-  extrapolateLeft: "clamp",
-  extrapolateRight: "clamp",
-} as const;
 
 const useEnter = (delay: number, damping = 200) => {
   const frame = useCurrentFrame();
@@ -261,21 +276,29 @@ const Shot: React.FC<{
   height: number;
   delay: number;
   dark: boolean;
-  focus?: Focus;
+  focus?: Focus[];
   tilt?: number;
-}> = ({ name, width, height, delay, dark, focus, tilt = 1 }) => {
+  overlay?: React.ReactNode;
+}> = ({ name, width, height, delay, dark, focus = [], tilt = 1, overlay }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const p = spring({ frame: frame - delay, fps, config: { damping: 16, mass: 0.9 } });
   const float = Math.sin((frame - delay) / 45) * 6;
   const shine = interpolate(frame, [delay + 12, delay + 42], [-60, 160], clamp);
-  const f = focus
-    ? spring({ frame: frame - focus.at, fps, config: { damping: 200 }, durationInFrames: 40 })
-    : 0;
-  const zoom = 1 + f * 0.32 + interpolate(frame, [delay, delay + 300], [0, 0.03], clamp);
-  const origin = focus
-    ? `${(focus.x + focus.w / 2) * 100}% ${(focus.y + focus.h / 2) * 100}%`
-    : "50% 50%";
+  // Each focus step eases in; the camera glides from one region to the next.
+  const steps = focus.map((s) =>
+    spring({ frame: frame - s.at, fps, config: { damping: 200 }, durationInFrames: 36 }),
+  );
+  let ox = 0.5;
+  let oy = 0.5;
+  focus.forEach((s, i) => {
+    ox += (s.x + s.w / 2 - ox) * steps[i];
+    oy += (s.y + s.h / 2 - oy) * steps[i];
+  });
+  const f = steps.length ? steps[0] : 0;
+  const active = steps.reduce((acc, v, i) => (v > 0.5 ? i : acc), 0);
+  const zoom = 1 + f * 0.3 + interpolate(frame, [delay, delay + 300], [0, 0.03], clamp);
+  const origin = `${ox * 100}% ${oy * 100}%`;
   const pulse = 1 + Math.sin(frame / 5) * 0.5;
   return (
     <div style={{ perspective: 1800, flexShrink: 0 }}>
@@ -307,14 +330,14 @@ const Shot: React.FC<{
             src={img(name)}
             style={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
-          {focus ? (
+          {focus.length ? (
             <div
               style={{
                 position: "absolute",
-                left: `${focus.x * 100}%`,
-                top: `${focus.y * 100}%`,
-                width: `${focus.w * 100}%`,
-                height: `${focus.h * 100}%`,
+                left: `${focus[active].x * 100}%`,
+                top: `${focus[active].y * 100}%`,
+                width: `${focus[active].w * 100}%`,
+                height: `${focus[active].h * 100}%`,
                 borderRadius: 10,
                 border: `${3 + pulse}px solid ${ACCENT}`,
                 boxShadow: `0 0 0 4000px rgba(20,20,20,${0.45 * f}), 0 0 30px rgba(245,165,0,${0.6 * f})`,
@@ -322,6 +345,7 @@ const Shot: React.FC<{
               }}
             />
           ) : null}
+          {overlay}
         </div>
         <div
           style={{
@@ -399,8 +423,6 @@ const B: React.FC<{ children: React.ReactNode; dark: boolean }> = ({
   </span>
 );
 
-const brl = (v: number) =>
-  v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const CountUp: React.FC<{ value: number; delay: number }> = ({
   value,
@@ -457,9 +479,11 @@ const ScreenScene: React.FC<{
   shot: string;
   points: React.ReactNode[];
   shotLeft?: boolean;
-  focus?: Focus;
+  focus?: Focus[];
   badge?: Badge;
-}> = ({ dark, eyebrow, title, shot, points, shotLeft, focus, badge }) => {
+  overlay?: React.ReactNode;
+  extra?: React.ReactNode;
+}> = ({ dark, eyebrow, title, shot, points, shotLeft, focus, badge, overlay, extra }) => {
   const s = (
     <Shot
       name={shot}
@@ -469,9 +493,15 @@ const ScreenScene: React.FC<{
       dark={dark}
       focus={focus}
       tilt={shotLeft ? -1 : 1}
+      overlay={overlay}
     />
   );
-  const p = <Points items={points} dark={dark} start={24} />;
+  const p = (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 36 }}>
+      <Points items={points} dark={dark} start={24} />
+      {extra}
+    </div>
+  );
   return (
     <Scene dark={dark}>
       <Heading eyebrow={eyebrow} title={title} dark={dark} />
@@ -670,8 +700,13 @@ const TableRow: React.FC<{
   cells: string[];
   widths: string;
   shade: boolean;
-}> = ({ delay, cells, widths, shade }) => {
+  strike: number | null;
+  check: number | null;
+}> = ({ delay, cells, widths, shade, strike, check }) => {
+  const frame = useCurrentFrame();
   const p = useEnter(delay);
+  const cross = interpolate(frame, [delay + 14, delay + 24], [0, 1], clamp);
+  const tick = useEnter(delay + 24, 10);
   const sweep = useEnter(delay + 4);
   return (
     <div
@@ -717,9 +752,47 @@ const TableRow: React.FC<{
             color: j === 0 ? DARK : MUTED_ON_LIGHT,
             paddingRight: 24,
             position: "relative",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            opacity: j === strike ? 1 - cross * 0.45 : 1,
           }}
         >
-          {c}
+          {j === check ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 34,
+                height: 34,
+                borderRadius: "50%",
+                backgroundColor: OK,
+                color: "#FFFFFF",
+                fontSize: 22,
+                fontWeight: 700,
+                transform: `scale(${tick})`,
+                flexShrink: 0,
+              }}
+            >
+              ✓
+            </span>
+          ) : null}
+          <span style={{ position: "relative" }}>
+            {c}
+            {j === strike ? (
+              <span
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: "52%",
+                  height: 4,
+                  width: `${cross * 100}%`,
+                  backgroundColor: DANGER,
+                }}
+              />
+            ) : null}
+          </span>
         </div>
       ))}
     </div>
@@ -731,7 +804,9 @@ const Table: React.FC<{
   rows: string[][];
   start: number;
   widths: string;
-}> = ({ head, rows, start, widths }) => {
+  strike?: number;
+  check?: number;
+}> = ({ head, rows, start, widths, strike, check }) => {
   const p = useEnter(start - 6);
   return (
     <div
@@ -767,6 +842,8 @@ const Table: React.FC<{
           cells={r}
           widths={widths}
           shade={i % 2 === 1}
+          strike={strike ?? null}
+          check={check ?? null}
         />
       ))}
     </div>
@@ -961,23 +1038,7 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           title="O custo escondido do papel e da planilha"
           dark={false}
         />
-        <Table
-          widths="1.1fr 1.3fr 1fr"
-          head={["Situação", "O que acontece", "Impacto"]}
-          start={14}
-          rows={[
-            ["Reserva dupla", "Cliente fica sem a máquina", "Pedido perdido"],
-            [
-              "Diária de atraso esquecida",
-              "Contrato fecha sem o excedente",
-              "Receita que não entra",
-            ],
-            ["Avaria sem registro", "A Dimaq paga o conserto", "Custo que era do cliente"],
-            ["Preventiva atrasada", "Máquina quebra na obra", "Parada e frete extra"],
-            ["Cobrança atrasada", "Vencidos acumulam sem alerta", "Caixa apertado"],
-            ["Orçamento demorado", "Cliente fecha com outro", "Venda perdida"],
-          ]}
-        />
+        <LeakTank start={150} />
       </Scene>
     ),
   },
@@ -986,17 +1047,15 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     node: (
       <Scene dark={false}>
         <Heading eyebrow="A solução" title="Um sistema, toda a operação" dark={false} />
-        <Cards
-          columns={3}
-          start={12}
-          dark={false}
+        <Hub
+          start={20}
           items={[
             { title: "Locação", text: "Orçamento, reserva, entrega, renovação e devolução." },
-            { title: "Medição", text: "Cobrança pro-rata por ciclo, opcional por contrato." },
+            { title: "Cobrança", text: "Período fechado ou medição pró-rata, por contrato." },
             { title: "Ordens de serviço", text: "Preventiva por horímetro, corretiva e revisão." },
             { title: "Vendas e estoque", text: "Peças e produtos com baixa automática." },
-            { title: "Financeiro e NF", text: "Receber, pagar, juros, recibos e dados da nota." },
-            { title: "Site e cliente", text: "Catálogo, pedido de orçamento e área do cliente." },
+            { title: "Financeiro e NF", text: "Receber, pagar, juros, recibos e nota." },
+            { title: "Site e cliente", text: "Catálogo, orçamento online e área do cliente." },
           ]}
         />
       </Scene>
@@ -1010,8 +1069,21 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Painel"
         title="O dia inteiro numa tela"
         shot="painel"
-        focus={{ x: 0.19, y: 0.17, w: 0.79, h: 0.28, at: 80 }}
-        badge={{ label: "Vencido a receber, em destaque", value: 1315, at: 120 }}
+        focus={[
+          { x: 0.19, y: 0.17, w: 0.79, h: 0.28, at: 60 },
+          { x: 0.2, y: 0.65, w: 0.78, h: 0.34, at: 150 },
+        ]}
+        badge={{ label: "Vencido a receber, em destaque", value: 1315, at: 95 }}
+        overlay={
+          <Cursor
+            path={[
+              { x: 0.6, y: 0.5, at: 170 },
+              { x: 0.29, y: 0.9, at: 200 },
+              { x: 0.34, y: 0.9, at: 240 },
+            ]}
+            clicks={[205, 245]}
+          />
+        }
         points={[
           <>Cada locação vira um cartão com <Hi>contagem regressiva</Hi>.</>,
           <>Atrasos, devoluções do dia, pedidos do site e vencidos em indicadores.</>,
@@ -1029,12 +1101,15 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Nova locação"
         title="Preço certo, sem conflito de reserva"
         shot="novaloc"
-        focus={{ x: 0.73, y: 0.46, w: 0.25, h: 0.18, at: 90 }}
+        focus={[
+          { x: 0.2, y: 0.62, w: 0.55, h: 0.18, at: 60 },
+          { x: 0.73, y: 0.46, w: 0.25, h: 0.18, at: 200 },
+        ]}
         points={[
           <><B dark={false}>Disponibilidade ao vivo</B> por peça ou por quantidade.</>,
-          <><B dark={false}>Melhor tarifa automática:</B> 10 dias = 1 semana + 3 diárias.</>,
           <>Sem estoque no período, só salva como orçamento: <B dark={false}>reserva dupla nunca mais</B>.</>,
         ]}
+        extra={<TariffBlocks start={100} dark={false} />}
       />
     ),
   },
@@ -1049,7 +1124,15 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
             { shot: "agenda", label: "Agenda:", text: "cada equipamento numa linha do tempo; clique num dia livre para orçar." },
           ].map((x, i) => (
             <div key={x.shot} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
-              <Shot name={x.shot} width={800} height={500} delay={8 + i * 10} dark={false} />
+              <Shot
+                name={x.shot}
+                width={800}
+                height={500}
+                delay={8 + i * 10}
+                dark={false}
+                overlay={x.shot === "quadro" ? <DragDemo start={40} /> : <Cursor path={[{ x: 0.5, y: 0.6, at: 150 }, { x: 0.61, y: 0.3, at: 180 }]} clicks={[185]} />}
+                focus={x.shot === "agenda" ? [{ x: 0.15, y: 0.25, w: 0.84, h: 0.12, at: 150 }] : []}
+              />
               <Rise delay={24 + i * 10}>
                 <div style={{ fontSize: 30, lineHeight: 1.4, color: MUTED_ON_LIGHT }}>
                   <B dark={false}>{x.label}</B> {x.text}
@@ -1069,33 +1152,26 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Devolução"
         title="Nenhuma diária esquecida"
         shot="devolucao"
-        focus={{ x: 0.17, y: 0.64, w: 0.66, h: 0.15, at: 80 }}
-        badge={{ label: "2 diárias de atraso cobradas", value: 660, at: 110 }}
+        focus={[{ x: 0.17, y: 0.64, w: 0.66, h: 0.15, at: 90 }]}
         points={[
-          <><Hi>Devolução parcial:</Hi> voltam 50 de 60 andaimes e o contrato segue com o resto.</>,
-          <><Hi>Atraso</Hi> calculado e lançado sozinho: 2 dias = R$ 660,00.</>,
-          <><Hi>Avaria</Hi> vira cobrança e abre a OS de revisão na hora.</>,
+          <><Hi>Atraso</Hi> calculado e lançado sozinho.</>,
+          <><Hi>Avaria</Hi> vira cobrança e abre a OS na hora.</>,
         ]}
+        extra={<LateTimeline start={70} />}
       />
     ),
   },
   {
     duration: 210,
     node: (
-      <ScreenScene
-        dark={false}
-        shotLeft
-        eyebrow="Cobrança por medição"
-        title="Pro-rata: cobra só o que ficou na obra"
-        shot="medicao"
-        focus={{ x: 0.17, y: 0.41, w: 0.66, h: 0.11, at: 80 }}
-        badge={{ label: "Medição pro-rata do ciclo", value: 2270, at: 110 }}
-        points={[
-          <>A cada ciclo, soma <B dark={false}>quantidade × dias</B> de cada item.</>,
-          <>Devolução parcial e item novo entram pela data real.</>,
-          <>Gera a conta a receber e o <B dark={false}>boletim de medição</B>.</>,
-        ]}
-      />
+      <Scene dark={false}>
+        <Heading
+          eyebrow="Cobrança"
+          title="Dois jeitos de cobrar: você escolhe por contrato"
+          dark={false}
+        />
+        <BillingModes start={10} flip={185} />
+      </Scene>
     ),
   },
   {
@@ -1107,7 +1183,7 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         text="Receita que escapava, custos que eram do cliente e horas de trabalho manual."
         stats={[
           { label: "diárias de atraso", value: 660 },
-          { label: "medição pro-rata", value: 2270 },
+          { label: "boletim de medição", value: 2270 },
           { label: "vencido em destaque", value: 1315 },
         ]}
       />
@@ -1124,7 +1200,7 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           start={14}
           rows={[
             ["Diárias excedentes", "Atraso calculado na devolução", "2 dias = R$ 660,00"],
-            ["Medição pro-rata", "Quantidade × dias, pela data real", "Boletim de R$ 2.270,00"],
+            ["Cobrança certa", "Período fechado ou medição pró-rata", "Boletim de R$ 2.270,00"],
             ["Avarias", "Viram cobrança e abrem OS", "Custo volta ao cliente"],
             ["Multa e juros", "Calculados na baixa", "Sem conta de cabeça"],
             ["Inadimplência", "Vencidos em destaque no painel", "R$ 1.315,00 à vista"],
@@ -1142,6 +1218,8 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         <Table
           widths="0.9fr 1.1fr 1.3fr"
           head={["Tarefa", "Antes", "Com o sistema"]}
+          strike={1}
+          check={2}
           start={14}
           rows={[
             ["Orçar", "Conferir estoque e calcular", "Preço e disponibilidade na hora"],
@@ -1183,14 +1261,14 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
               </Rise>
             </div>
           ))}
-          <Points
-            dark
-            start={40}
-            items={[
-              <>Também: orçamento, checklist, fatura, OS, pedido de venda e recibo.</>,
-              <Hi key="x">Imprimir, salvar em PDF ou mandar o link.</Hi>,
-            ]}
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+            <Rise delay={36}>
+              <div style={{ fontSize: 30, lineHeight: 1.4, color: MUTED_ON_DARK, maxWidth: 380 }}>
+                Também: orçamento, checklist, fatura, OS, pedido de venda e recibo.
+              </div>
+            </Rise>
+            <SendLinks start={90} />
+          </div>
         </div>
       </Scene>
     ),
@@ -1203,12 +1281,12 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
         eyebrow="Ordens de serviço"
         title="Máquina revisada é máquina alugando"
         shot="os"
-        focus={{ x: 0.19, y: 0.53, w: 0.53, h: 0.11, at: 90 }}
+        focus={[{ x: 0.19, y: 0.53, w: 0.53, h: 0.11, at: 150 }]}
         points={[
-          <><B dark={false}>Preventiva por horímetro</B> (ex.: a cada 250 h), com alerta no painel.</>,
-          <>Corretiva, revisão de retorno e serviço para cliente.</>,
+          <><B dark={false}>Preventiva por horímetro</B>, com alerta no painel.</>,
           <>Peças saem do estoque; a máquina fica bloqueada com a OS aberta.</>,
         ]}
+        extra={<HourGauge start={60} />}
       />
     ),
   },
@@ -1231,7 +1309,14 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
               ]}
             />
           </div>
-          <Shot name="celular" width={290} height={628} delay={20} dark={false} />
+          <Shot
+            name="celular"
+            width={290}
+            height={628}
+            delay={20}
+            dark={false}
+            overlay={<PhoneToast at={90} text="Orçamento: betoneira 400 L, 7 dias" />}
+          />
         </div>
       </Scene>
     ),
@@ -1360,31 +1445,15 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
     node: (
       <Scene dark>
         <Heading eyebrow="Implantação" title="Próximos passos" dark />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {[
+        <StepsProgress
+          start={20}
+          steps={[
             "Instalar no site e cadastrar a equipe",
-            "Migrar clientes, frota e contratos em aberto",
-            "Ajustar cláusulas do contrato e regras da medição",
-            "Treinamento com o manual e ligar e-mail e nota fiscal",
-          ].map((t, i) => (
-            <Rise key={t} delay={12 + i * 12}>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 48,
-                  alignItems: "center",
-                  padding: "26px 0",
-                  borderBottom: "1px solid #3A3A3A",
-                }}
-              >
-                <div style={{ fontFamily: display, fontSize: 56, fontWeight: 700, color: ACCENT, width: 90 }}>
-                  0{i + 1}
-                </div>
-                <div style={{ fontSize: 38 }}>{t}</div>
-              </div>
-            </Rise>
-          ))}
-        </div>
+            "Migrar clientes, frota e contratos",
+            "Ajustar contratos e regras de cobrança",
+            "Treinar o time e ligar e-mail e nota",
+          ]}
+        />
       </Scene>
     ),
   },
