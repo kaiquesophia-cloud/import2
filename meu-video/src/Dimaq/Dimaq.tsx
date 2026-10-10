@@ -1038,7 +1038,7 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           title="O custo escondido do papel e da planilha"
           dark={false}
         />
-        <LeakTank start={150} />
+        <LeakTank start={215} />
       </Scene>
     ),
   },
@@ -1170,7 +1170,7 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
           title="Dois jeitos de cobrar: você escolhe por contrato"
           dark={false}
         />
-        <BillingModes start={10} flip={185} />
+        <BillingModes start={10} flip={235} />
       </Scene>
     ),
   },

@@ -2,11 +2,12 @@ import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
 import timing from "./timing.json";
 
-const SKIN = "#C98E6B";
-const SKIN_SHADE = "#B37A58";
-const HAIR = "#2E1B12";
+const SKIN = "#D29B78";
+const SKIN_SHADE = "#B98262";
+const HAIR = "#4A3A30";
+const BEARD = "rgba(90,70,60,0.35)";
 
-// Illustrated presenter whose mouth follows the narration loudness.
+// Illustrated presenter (hard hat, Dimaq colours) whose mouth follows the narration loudness.
 export const Presenter: React.FC<{ size: number }> = ({ size }) => {
   const frame = useCurrentFrame();
   const m = timing.mouth[Math.min(frame, timing.mouth.length - 1)] ?? 0;
@@ -36,66 +37,82 @@ export const Presenter: React.FC<{ size: number }> = ({ size }) => {
       <g clipPath="url(#presenter-clip)">
         <rect width="400" height="400" fill="url(#presenter-bg)" />
         <g transform={`translate(0 ${-recent * 2})`}>
-          {/* Body */}
-          <path d="M60 400 C70 320 120 290 200 290 C280 290 330 320 340 400 Z" fill="#262626" />
-          <path d="M165 292 L200 360 L235 292 Z" fill="#F4F2EE" />
-          <path d="M150 296 L200 400 L178 300 Z" fill="#1A1A1A" />
-          <path d="M250 296 L200 400 L222 300 Z" fill="#1A1A1A" />
-          <circle cx="262" cy="335" r="7" fill="#F5A500" />
-          <rect x="178" y="245" width="44" height="55" rx="18" fill={SKIN_SHADE} />
+          {/* Body: work shirt with a reflective vest */}
+          <path d="M50 400 C60 318 115 292 200 292 C285 292 340 318 350 400 Z" fill="#3E5C76" />
+          <path d="M168 294 L200 340 L232 294 Z" fill="#2F4A61" />
+          <path d="M95 330 L150 300 L175 400 L110 400 Z" fill="#F5A500" />
+          <path d="M305 330 L250 300 L225 400 L290 400 Z" fill="#F5A500" />
+          <rect x="112" y="352" width="58" height="10" fill="#E8E8E8" transform="rotate(-8 140 357)" />
+          <rect x="230" y="352" width="58" height="10" fill="#E8E8E8" transform="rotate(8 260 357)" />
+          <rect x="180" y="245" width="40" height="55" rx="16" fill={SKIN_SHADE} />
           <g transform={`rotate(${tilt} 200 270) translate(0 ${nod})`}>
-            {/* Hair back */}
-            <ellipse cx="200" cy="185" rx="96" ry="112" fill={HAIR} />
-            <path d="M108 190 C100 250 110 290 140 300 L150 200 Z" fill={HAIR} />
-            <path d="M292 190 C300 250 290 290 260 300 L250 200 Z" fill={HAIR} />
             {/* Ears */}
-            <ellipse cx="128" cy="195" rx="12" ry="18" fill={SKIN_SHADE} />
-            <ellipse cx="272" cy="195" rx="12" ry="18" fill={SKIN_SHADE} />
-            <circle cx="128" cy="218" r="5" fill="#F5A500" />
-            <circle cx="272" cy="218" r="5" fill="#F5A500" />
+            <ellipse cx="130" cy="200" rx="12" ry="18" fill={SKIN_SHADE} />
+            <ellipse cx="270" cy="200" rx="12" ry="18" fill={SKIN_SHADE} />
             {/* Face */}
-            <ellipse cx="200" cy="190" rx="72" ry="86" fill={SKIN} />
-            {/* Fringe */}
             <path
-              d="M126 170 C130 105 175 88 215 95 C255 100 280 130 276 170 C255 140 225 125 190 130 C165 133 140 148 126 170 Z"
-              fill={HAIR}
+              d="M130 175 C130 120 165 105 200 105 C235 105 270 120 270 175 L268 215 C262 262 232 282 200 282 C168 282 138 262 132 215 Z"
+              fill={SKIN}
             />
+            {/* Short hair at the temples and stubble */}
+            <path d="M131 178 C129 160 132 150 138 145 L140 182 Z" fill={HAIR} />
+            <path d="M269 178 C271 160 268 150 262 145 L260 182 Z" fill={HAIR} />
+            <path
+              d="M138 215 C142 258 170 280 200 280 C230 280 258 258 262 215 C250 232 232 238 200 238 C168 238 150 232 138 215 Z"
+              fill={BEARD}
+            />
+            {/* Hard hat */}
+            <path
+              d="M118 158 C118 92 160 62 200 62 C240 62 282 92 282 158 Z"
+              fill="#F6F4EF"
+            />
+            <path d="M196 64 L204 64 L206 158 L194 158 Z" fill="#E4E0D8" />
+            <rect x="104" y="150" width="192" height="18" rx="9" fill="#ECE8E0" />
+            <rect x="122" y="128" width="156" height="12" fill="#F5A500" />
+            <circle cx="200" cy="105" r="13" fill="#1F1F1F" />
+            <text x="200" y="110" textAnchor="middle" fontSize="13" fontWeight="700" fill="#F5A500" fontFamily="Arial">
+              D
+            </text>
             {/* Brows */}
             <path
-              d={`M160 ${158 - brow} Q175 ${150 - brow} 190 ${157 - brow}`}
+              d={`M158 ${184 - brow} Q174 ${176 - brow} 190 ${183 - brow}`}
               stroke={HAIR}
-              strokeWidth="6"
+              strokeWidth="7"
               fill="none"
               strokeLinecap="round"
             />
             <path
-              d={`M210 ${157 - brow} Q225 ${150 - brow} 240 ${158 - brow}`}
+              d={`M210 ${183 - brow} Q226 ${176 - brow} 242 ${184 - brow}`}
               stroke={HAIR}
-              strokeWidth="6"
+              strokeWidth="7"
               fill="none"
               strokeLinecap="round"
             />
             {/* Eyes */}
-            <g transform={`translate(0 182) scale(1 ${blink}) translate(0 -182)`}>
-              <ellipse cx="175" cy="182" rx="11" ry="12" fill="#FBFAF7" />
-              <ellipse cx="225" cy="182" rx="11" ry="12" fill="#FBFAF7" />
-              <circle cx="176" cy="183" r="7" fill="#3B2418" />
-              <circle cx="226" cy="183" r="7" fill="#3B2418" />
-              <circle cx="178" cy="180" r="2.2" fill="#FFFFFF" />
-              <circle cx="228" cy="180" r="2.2" fill="#FFFFFF" />
+            <g transform={`translate(0 202) scale(1 ${blink}) translate(0 -202)`}>
+              <ellipse cx="175" cy="202" rx="10" ry="10" fill="#FBFAF7" />
+              <ellipse cx="225" cy="202" rx="10" ry="10" fill="#FBFAF7" />
+              <circle cx="176" cy="203" r="6.5" fill="#3B2418" />
+              <circle cx="226" cy="203" r="6.5" fill="#3B2418" />
+              <circle cx="178" cy="200" r="2" fill="#FFFFFF" />
+              <circle cx="228" cy="200" r="2" fill="#FFFFFF" />
             </g>
-            {/* Nose and cheeks */}
-            <path d="M200 192 Q194 214 201 218" stroke={SKIN_SHADE} strokeWidth="4" fill="none" strokeLinecap="round" />
-            <ellipse cx="160" cy="215" rx="13" ry="7" fill="#E07A6A" opacity="0.35" />
-            <ellipse cx="240" cy="215" rx="13" ry="7" fill="#E07A6A" opacity="0.35" />
+            {/* Glasses */}
+            <g stroke="#2A2A2A" strokeWidth="4" fill="none">
+              <rect x="154" y="186" width="42" height="32" rx="10" />
+              <rect x="204" y="186" width="42" height="32" rx="10" />
+              <path d="M196 199 L204 199" />
+            </g>
+            {/* Nose and moustache */}
+            <path d="M200 212 Q193 232 202 236" stroke={SKIN_SHADE} strokeWidth="4" fill="none" strokeLinecap="round" />
+            <path d="M174 246 Q200 236 226 246 Q212 250 200 247 Q188 250 174 246 Z" fill="rgba(90,70,60,0.75)" />
             {/* Mouth */}
             {open < 0.08 ? (
-              <path d="M180 236 Q200 250 220 236" stroke="#8A3A32" strokeWidth="5" fill="none" strokeLinecap="round" />
+              <path d="M182 256 Q200 266 218 256" stroke="#7A3A32" strokeWidth="5" fill="none" strokeLinecap="round" />
             ) : (
               <g>
-                <ellipse cx="200" cy={238 + open * 4} rx={16 + open * 5} ry={4 + open * 13} fill="#5E2420" />
-                <ellipse cx="200" cy={230 + open * 1} rx={13 + open * 4} ry={3} fill="#FBFAF7" />
-                <ellipse cx="200" cy={244 + open * 9} rx={9 + open * 3} ry={2 + open * 3} fill="#C25B55" />
+                <ellipse cx="200" cy={258 + open * 4} rx={15 + open * 4} ry={3 + open * 11} fill="#5E2420" />
+                <ellipse cx="200" cy={251 + open * 1} rx={11 + open * 3} ry={2.5} fill="#FBFAF7" />
               </g>
             )}
           </g>
