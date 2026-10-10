@@ -1,4 +1,5 @@
 import { Composition, Folder } from "remotion";
+import { DIMAQ_DURATION, DimaqApresentacao } from "./Dimaq/Dimaq";
 import { HelloWorld } from "./HelloWorld";
 import { Logo } from "./HelloWorld/Logo";
 import { Title } from "./HelloWorld/Title";
@@ -8,6 +9,14 @@ import { Title } from "./HelloWorld/Title";
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id="DimaqApresentacao"
+        component={DimaqApresentacao}
+        durationInFrames={DIMAQ_DURATION}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
       <Folder name="Elements">
         <Composition
           id="Logo"
