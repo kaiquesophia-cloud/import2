@@ -5,6 +5,7 @@ import { linearTiming, TransitionSeries } from "@remotion/transitions";
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   Img,
   interpolate,
   spring,
@@ -12,6 +13,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { Presenter } from "./Presenter";
+import timing from "./timing.json";
 
 const display = "Oswald";
 const body = "Public Sans";
@@ -81,17 +84,6 @@ const Scene: React.FC<{
     }}
   >
     {children}
-    <div
-      style={{
-        position: "absolute",
-        left: 128,
-        bottom: 52,
-        fontSize: 24,
-        color: accent ? DARK : dark ? "#A8A29A" : "#77716A",
-      }}
-    >
-      Dimaq Locações · Sistema de gestão
-    </div>
   </AbsoluteFill>
 );
 
@@ -439,7 +431,7 @@ const Intro: React.FC = () => {
           </div>
         </Rise>
         <Rise delay={34}>
-          <div style={{ fontSize: 36, color: MUTED_ON_DARK, maxWidth: 1350 }}>
+          <div style={{ fontSize: 36, color: MUTED_ON_DARK, maxWidth: 1200 }}>
             Locação, medição, ordens de serviço, financeiro e site em um só
             lugar, feitos sob medida para a Dimaq.
           </div>
@@ -917,15 +909,94 @@ const scenes: { duration: number; node: React.ReactNode }[] = [
   { duration: 180, node: <Outro /> },
 ];
 
+// Each scene lasts as long as its narration line (see timing.json).
+scenes.forEach((s, i) => {
+  s.duration = timing.durations[i];
+});
+
+const sceneStarts = scenes.map(
+  (_, i) =>
+    scenes.slice(0, i).reduce((sum, s) => sum + s.duration, 0) -
+    i * TRANSITION,
+);
+
 export const DIMAQ_DURATION =
   scenes.reduce((sum, s) => sum + s.duration, 0) -
   (scenes.length - 1) * TRANSITION;
+
+const Caption: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  let index = 0;
+  sceneStarts.forEach((start, i) => {
+    if (frame >= start) {
+      index = i;
+    }
+  });
+  const local = frame - sceneStarts[index];
+  const end = scenes[index].duration - Math.round(0.6 * fps);
+  const opacity = interpolate(local, [6, 14, end - 8, end], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 128,
+        bottom: 34,
+        maxWidth: 1440,
+        opacity,
+        backgroundColor: "rgba(20,20,20,0.86)",
+        color: "#FBFAF7",
+        fontFamily: body,
+        fontSize: 28,
+        lineHeight: 1.35,
+        padding: "12px 22px",
+        borderRadius: 10,
+      }}
+    >
+      {timing.lines[index]}
+    </div>
+  );
+};
+
+const PresenterOverlay: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const shrink = spring({
+    frame: frame - (scenes[0].duration - TRANSITION),
+    fps,
+    config: { damping: 200 },
+  });
+  const appear = spring({ frame: frame - 8, fps, config: { damping: 14 } });
+  const size = interpolate(shrink, [0, 1], [400, 230]);
+  const right = interpolate(shrink, [0, 1], [70, 36]);
+  const bottom = interpolate(shrink, [0, 1], [340, 36]);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right,
+        bottom,
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
+        transform: `scale(${appear})`,
+      }}
+    >
+      <Presenter size={size} />
+    </div>
+  );
+};
 
 export const DimaqApresentacao: React.FC = () => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   return (
     <AbsoluteFill style={{ backgroundColor: DARK }}>
+      <Audio src={staticFile("dimaq/audio/narracao-e-musica.mp3")} />
       <TransitionSeries>
         {scenes.map((s, i) => (
           <React.Fragment key={i}>
@@ -941,6 +1012,8 @@ export const DimaqApresentacao: React.FC = () => {
           </React.Fragment>
         ))}
       </TransitionSeries>
+      <Caption />
+      <PresenterOverlay />
       <div
         style={{
           position: "absolute",
