@@ -1,6 +1,6 @@
 # GTorre Product Directory Record
 
-Last updated: 2026-10-12T23:30:00Z
+Last updated: 2026-10-13T00:30:00Z
 
 ## Permanent operating rules
 
@@ -9,7 +9,7 @@ Last updated: 2026-10-12T23:30:00Z
 - Product canonical ID: gtorre
 - Campaign purpose: product discovery; profile accuracy; referral traffic; listing durability
 - Ranking manipulation prohibited: yes
-- Approved contact reference: contact-commercial
+- Approved contact reference: contact-commercial (public listing); account-owner-gmail (account login, owner Gmail)
 - Master-data source: campanhas/gtorre/dados-empresa.md
 - Evidence store: gtorre-evidence
 - Evidence retention policy: 180 days
@@ -27,9 +27,9 @@ Last updated: 2026-10-12T23:30:00Z
 ## Authorization matrix
 
 - inspection: decision=allowed; approved_by=owner; approved_at=2026-10-12T22:00:00Z; scope=all listed sites; expires_at=no expiry
-- form filling: decision=ask; approved_by=owner; approved_at=not applicable; scope=not applicable; expires_at=not applicable
-- account creation: decision=ask; approved_by=owner; approved_at=not applicable; scope=not applicable; expires_at=not applicable
-- native registration-email verification: decision=ask; approved_by=owner; approved_at=not applicable; scope=not applicable; expires_at=not applicable
+- form filling: decision=allowed; approved_by=owner; approved_at=2026-10-13T00:30:00Z; scope=apontador.com.br, bing.com; expires_at=2026-11-13T00:30:00Z
+- account creation: decision=allowed; approved_by=owner; approved_at=2026-10-13T00:30:00Z; scope=apontador.com.br, bing.com; expires_at=2026-11-13T00:30:00Z
+- native registration-email verification: decision=allowed; approved_by=owner; approved_at=2026-10-13T00:30:00Z; scope=apontador.com.br, bing.com; expires_at=2026-11-13T00:30:00Z
 - terms/privacy acceptance: decision=ask; approved_by=owner; approved_at=not applicable; scope=not applicable; expires_at=not applicable
 - final form submission: decision=ask; approved_by=owner; approved_at=not applicable; scope=not applicable; expires_at=not applicable
 - email sending: decision=prohibited; approved_by=owner; approved_at=not applicable; scope=not applicable; expires_at=not applicable
