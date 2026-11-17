@@ -1,0 +1,4 @@
+id,source,matching,destination,type,category,status,ignore
+,aluguel-andaimes-preco,exact,https://andaimaq.com.br/aluguel-de-andaimes-preco/,301,,active,
+,aluguel-de-andaime-preco,exact,https://andaimaq.com.br/aluguel-de-andaimes-preco/,301,,active,
+,sample-page,exact,https://andaimaq.com.br/,301,,active,
