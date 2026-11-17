@@ -20,16 +20,16 @@ def grad_text(im, xy, txt, font, c1, c2, anchor='la'):
     im.paste(g, (0, 0), m)
 
 def logo(im, d, x, y, s=1.0):
-    grad_text(im, (x, y), 'SE', F(800, int(44 * s)), OR1, OR2)
-    w = d.textlength('SE', font=F(800, int(44 * s)))
-    d.text((x + w + 8 * s, y + 4 * s), 'AMPLIFY', font=F(800, int(34 * s)), fill=TX)
+    lg = Image.open(os.path.join(D, 'logo-seo-amplify.png')).convert('RGBA'); lg = lg.crop(lg.getbbox())
+    lw = int(250 * s); lg = lg.resize((lw, int(lg.height * lw / lg.width)), Image.LANCZOS)
+    im.paste(lg, (x, y), lg)
 
 def base(h):
     im = Image.new('RGB', (1080, h), BG)
     glow = Image.new('RGB', (1080, h), BG); gd = ImageDraw.Draw(glow)
     gd.ellipse((520, -380, 1480, 520), fill=(90, 30, 150)); gd.ellipse((-420, h - 520, 420, h + 360), fill=(70, 20, 110))
     im = glow.filter(ImageFilter.GaussianBlur(170)); d = ImageDraw.Draw(im)
-    logo(im, d, 80, 64)
+    logo(im, d, 70, 50)
     d.text((1000, 78), 'CASE', font=F(700, 24), fill=MUT, anchor='ra')
     return im, d
 
