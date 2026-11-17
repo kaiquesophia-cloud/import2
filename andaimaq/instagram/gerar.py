@@ -79,8 +79,10 @@ def kpis(d, y, gap=24, ch=190):
 FEITO = ['Página de preços reescrita para quem pesquisa "quanto custa"', 'Páginas para cada região de São Paulo atendida', 'Artigos que respondem as dúvidas de quem está em obra', 'Títulos, links internos e ajustes técnicos no site']
 
 def capa(h, story=False):
-    im, d = base(h); y = 330 if story else 230
-    d.text((80, y), 'C A S E  ·  A N D A I M A Q', font=F(700, 24), fill=OR1); y += 70
+    im, d = base(h); y = 300 if story else 180
+    d.text((80, y), 'C A S E', font=F(700, 24), fill=OR1); y += 50
+    lg = Image.open(os.path.join(D, 'logo-andaimaq.png')); lw = 460 if story else 420; lg = lg.resize((lw, int(lg.height * lw / lg.width)), Image.LANCZOS)
+    im.paste(lg, (80, y), lg); y += lg.height + 40
     fz = F(800, 240 if story else 220); d.text((70, y), '+', font=fz, fill=UP); d.text((70 + d.textlength('+', font=fz), y), '253%', font=fz, fill=TX); y += 270 if story else 250
     y = para(d, (80, y), 'de visitas vindas do Google orgânico em 28 dias', F(700, 58), TX, 900) + 40
     y = para(d, (80, y), 'De 32 para 113 visitas, comparando 28 dias com os 28 dias anteriores. Visitas do Google sem pagar por clique.', F(500, 34), MUT, 900)
