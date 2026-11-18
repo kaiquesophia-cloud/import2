@@ -76,7 +76,6 @@ def kpis(d, y, gap=24, ch=190):
         y += ch + gap
     return y
 
-FEITO = ['Página de preços reescrita para quem pesquisa "quanto custa"', 'Páginas para cada região de São Paulo atendida', 'Artigos que respondem as dúvidas de quem está em obra', 'Títulos, links internos e ajustes técnicos no site']
 
 def capa(h, story=False):
     im, d = base(h); y = 300 if story else 180
@@ -101,16 +100,13 @@ def numeros(h, story=False):
     rodape(d, h, None if story else '2/3'); return im
 
 def fechamento(h, story=False):
-    im, d = base(h); y = 300 if story else 170
-    d.text((80, y), 'O que fizemos', font=F(800, 64), fill=TX); y += 120
-    for t in FEITO:
-        d.ellipse((80, y + 14, 104, y + 38), fill=OR1)
-        y = para(d, (130, y), t, F(700, 36 if story else 32), TX, 860) + (28 if story else 16)
-    y += 30
-    d.rounded_rectangle((80, y, 1000, y + 200), 22, fill=CARD)
-    d.text((120, y + 34), 'Resultado que vira cliente', font=F(700, 28), fill=MUT)
-    para(d, (120, y + 80), '20 contatos pelo WhatsApp vindos do Google orgânico em 28 dias', F(800, 38), TX, 820)
-    y += 330 if story else 240
+    im, d = base(h); y = 330 if story else 200
+    d.text((80, y), 'Visita que vira cliente', font=F(800, 64 if story else 60), fill=TX); y += 140 if story else 120
+    d.rounded_rectangle((80, y, 1000, y + (420 if story else 380)), 30, fill=CARD)
+    fz = F(800, 200 if story else 180); d.text((130, y + 30), '20', font=fz, fill=OR1)
+    para(d, (130, y + (250 if story else 225)), 'contatos pelo WhatsApp vindos do Google orgânico em 28 dias', F(800, 40 if story else 36), TX, 820)
+    y += (420 if story else 380) + 50
+    y = para(d, (80, y), 'Clientes chegando pelo Google, sem pagar por clique.', F(500, 36 if story else 32), MUT, 920) + (110 if story else 60)
     y = para(d, (80, y), 'Quer que o Google traga clientes para a sua empresa?', F(800, 48 if story else 42), TX, 920) + 30
     bh = 120 if story else 100
     d.rounded_rectangle((80, y, 1000, y + bh), bh // 2, fill=AC)
