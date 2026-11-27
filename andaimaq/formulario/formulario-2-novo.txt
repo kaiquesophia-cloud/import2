@@ -1,0 +1,36 @@
+=== FORMULÁRIO (Contact Form 7 → "Formulario 2" → aba Formulário) ===
+<label> Seu nome
+    [text* your-name autocomplete:name] </label>
+
+<label> WhatsApp ou telefone
+    [tel* your-phone autocomplete:tel placeholder "(11) 90000-0000"] </label>
+
+<label> Equipamento
+    [select* your-equipment first_as_label "Selecione" "Andaime" "Escora metálica" "Betoneira" "Martelete" "Outro"] </label>
+
+<label> Seu e-mail (opcional)
+    [email your-email autocomplete:email] </label>
+
+<label> Mensagem (opcional)
+    [textarea your-message placeholder "Ex.: quantidade, altura, período de locação"] </label>
+
+[submit "Pedir orçamento"]
+
+=== E-MAIL (aba E-mail) ===
+Para: (manter o atual)
+De: (manter o atual)
+Assunto: Orçamento pelo site: [your-equipment] - [your-name]
+Cabeçalhos adicionais: Reply-To: [your-email]
+Corpo:
+Novo pedido de orçamento pelo site da Andaimaq
+
+Nome: [your-name]
+WhatsApp/telefone: [your-phone]
+Equipamento: [your-equipment]
+E-mail: [your-email]
+
+Mensagem:
+[your-message]
+
+--
+Enviado pela página [_url]
